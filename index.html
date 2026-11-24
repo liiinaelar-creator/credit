@@ -1,0 +1,1801 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>دفتر الكريدي - إدارة الديون والمتجر</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-top: #0f4c9c;
+  --bg-mid: #1967bd;
+  --bg-bot: #1e57a8;
+  --bg-deep: #0e3878;
+  --ink: #ffffff;
+  --ink-dim: rgba(235, 246, 255, 0.85);
+  --glass: rgba(255, 255, 255, 0.14);
+  --glass-strong: rgba(255, 255, 255, 0.22);
+  --border-light: rgba(186, 230, 253, 0.48);
+  --border-dim: rgba(186, 230, 253, 0.22);
+  --glow-cyan: 0 6px 18px rgba(14, 165, 233, 0.35);
+  --green-txt: #34d399;
+  --red-txt: #ff5252;
+  --blur: blur(20px) saturate(145%);
+}
+
+:root[data-theme="dark"] {
+  --bg-top: #061836;
+  --bg-mid: #0b2854;
+  --bg-bot: #092045;
+  --bg-deep: #041126;
+  --glass: rgba(255, 255, 255, 0.08);
+  --glass-strong: rgba(255, 255, 255, 0.14);
+  --border-light: rgba(125, 211, 252, 0.32);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; margin: 0; }
+
+body {
+  font-family: "Cairo", system-ui, sans-serif;
+  color: var(--ink);
+  background: 
+    radial-gradient(circle at 82% 14%, rgba(56, 189, 248, 0.3) 0%, transparent 48%),
+    radial-gradient(circle at 18% 48%, rgba(20, 184, 166, 0.22) 0%, transparent 52%),
+    radial-gradient(circle at 75% 85%, rgba(2, 132, 199, 0.3) 0%, transparent 50%),
+    linear-gradient(170deg, var(--bg-top) 0%, var(--bg-mid) 45%, var(--bg-bot) 80%, var(--bg-deep) 100%);
+  background-attachment: fixed;
+  overflow-x: hidden;
+}
+
+#app {
+  position: relative;
+  z-index: 1;
+  max-width: 440px;
+  margin: 0 auto;
+  min-height: 100%;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 112px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==========================================================================
+   شاشة تسجيل الدخول بحساب جوجل (Liquid 3D Frosted Glass)
+   ========================================================================== */
+.auth-screen {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px 4px;
+  min-height: calc(100vh - 30px);
+}
+
+/* موجات ضوئية خلفية انسيابية خلف بطاقة الدخول */
+.auth-waves {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(125, 211, 252, 0.42) 0%, transparent 45%),
+    radial-gradient(circle at 85% 30%, rgba(14, 165, 233, 0.48) 0%, transparent 55%),
+    radial-gradient(circle at 15% 85%, rgba(56, 189, 248, 0.35) 0%, transparent 50%),
+    linear-gradient(155deg, #2589f5 0%, #1065d8 48%, #0742a3 100%);
+}
+
+.auth-waves svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.auth-card {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  border-radius: 42px;
+  padding: 36px 22px 30px;
+  background:
+    radial-gradient(120% 80% at 15% 0%, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.08) 45%, transparent 70%),
+    radial-gradient(100% 70% at 85% 100%, rgba(186, 230, 253, 0.28) 0%, transparent 65%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.22) 0%, rgba(147, 197, 253, 0.1) 50%, rgba(30, 64, 175, 0.24) 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.68);
+  box-shadow:
+    0 26px 56px rgba(4, 24, 68, 0.44),
+    0 2px 10px rgba(255, 255, 255, 0.25),
+    inset 0 2px 3px rgba(255, 255, 255, 0.85),
+    inset 0 -3px 8px rgba(186, 230, 253, 0.42),
+    inset 3px 0 6px rgba(255, 255, 255, 0.32),
+    inset -3px 0 6px rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(26px) saturate(165%);
+  -webkit-backdrop-filter: blur(26px) saturate(165%);
+  overflow: hidden;
+}
+
+/* طبقة انعكاس زجاجي علوي واقعي */
+.auth-card::before {
+  content: "";
+  position: absolute;
+  top: -18%;
+  left: -10%;
+  right: -10%;
+  height: 46%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0) 72%);
+  pointer-events: none;
+}
+
+/* أيقونة الدفتر الزجاجية ثلاثية الأبعاد */
+.auth-logo-box {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 28px;
+  margin: 0 auto 14px;
+  background:
+    radial-gradient(circle at 28% 18%, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.12) 45%, transparent 70%),
+    linear-gradient(155deg, rgba(186, 230, 253, 0.45) 0%, rgba(14, 116, 210, 0.42) 60%, rgba(7, 56, 138, 0.65) 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 14px 28px rgba(4, 26, 72, 0.42),
+    inset 0 2px 3px rgba(255, 255, 255, 0.9),
+    inset 0 -4px 8px rgba(125, 211, 252, 0.5);
+  display: grid;
+  place-items: center;
+}
+
+.auth-title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -0.4px;
+  text-shadow: 0 3px 12px rgba(4, 24, 68, 0.32);
+}
+
+.auth-desc {
+  margin: 10px 0 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: rgba(248, 250, 252, 0.96);
+  line-height: 1.65;
+  text-shadow: 0 1px 4px rgba(4, 24, 68, 0.25);
+}
+
+/* زر Google بتأثير الزجاج السائل المضيء */
+.google-btn {
+  position: relative;
+  width: 100%;
+  height: 56px;
+  border-radius: 999px;
+  background:
+    radial-gradient(90% 65% at 50% 0%, rgba(255, 255, 255, 0.98) 0%, rgba(240, 249, 255, 0.88) 65%, rgba(219, 234, 254, 0.82) 100%);
+  border: 1.8px solid rgba(255, 255, 255, 0.95);
+  color: #0b192c;
+  font: inherit;
+  font-weight: 900;
+  font-size: 16.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  box-shadow:
+    0 14px 30px rgba(4, 24, 68, 0.36),
+    0 0 18px rgba(255, 255, 255, 0.35),
+    inset 0 3px 4px #ffffff,
+    inset 0 -4px 8px rgba(147, 197, 253, 0.55);
+  transition: transform 0.16s ease, box-shadow 0.2s ease;
+  margin-top: 24px;
+  overflow: hidden;
+}
+
+.google-btn::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 16px;
+  right: 16px;
+  height: 44%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+}
+
+.google-btn:active { transform: scale(0.97); }
+.google-btn:disabled { opacity: 0.7; cursor: wait; }
+
+.guest-link {
+  margin-top: 20px;
+  background: transparent;
+  border: 0;
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+  text-shadow: 0 1px 4px rgba(4, 24, 68, 0.3);
+  transition: opacity 0.15s ease;
+}
+.guest-link:active { opacity: 0.75; }
+
+/* الهيدر العلوي */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 20px;
+  font-weight: 900;
+  text-shadow: 0 2px 8px rgba(4, 20, 48, 0.35);
+  cursor: pointer;
+  padding: 2px 10px;
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+.brand-wrap:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.edit-hint {
+  opacity: 0.72;
+  display: inline-flex;
+  align-items: center;
+}
+
+.glass-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-light);
+  box-shadow: 0 4px 12px rgba(5, 22, 54, 0.22), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.15s ease;
+  flex: none;
+  overflow: hidden;
+  padding: 0;
+}
+.glass-circle:active { transform: scale(0.93); }
+.glass-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sync-dot {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #10b981;
+  border: 1.5px solid #0f4c9c;
+}
+.sync-dot.syncing { background: #38bdf8; animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* شريط التبويبات: العملاء / الموردون */
+.seg-wrap {
+  display: flex;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-light);
+  border-radius: 999px;
+  padding: 3px;
+  margin-bottom: 12px;
+  box-shadow: 0 6px 16px rgba(5, 22, 54, 0.22), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+
+.seg-btn {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  font: inherit;
+  font-weight: 800;
+  font-size: 14px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all 0.22s ease;
+}
+
+.seg-btn.active {
+  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 60%, #0369a1 100%);
+  color: #fff;
+  border: 1px solid rgba(224, 242, 254, 0.75);
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.42), inset 0 1px 2px rgba(255, 255, 255, 0.55);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* البطاقات المالية: لي (أخضر) وعليّ (أحمر) */
+.cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.stat-card {
+  position: relative;
+  border-radius: 18px;
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  overflow: hidden;
+}
+
+.stat-card.green {
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.16) 0%, rgba(20, 184, 166, 0.24) 100%);
+  border: 1px solid rgba(153, 246, 228, 0.55);
+  box-shadow: 0 6px 16px rgba(6, 35, 65, 0.22), inset 0 1px 1px rgba(255, 255, 255, 0.45), inset 0 -4px 10px rgba(45, 212, 191, 0.2);
+}
+
+.stat-card.red {
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.16) 0%, rgba(14, 165, 233, 0.25) 100%);
+  border: 1px solid rgba(186, 230, 253, 0.55);
+  box-shadow: 0 6px 16px rgba(6, 35, 65, 0.22), inset 0 1px 1px rgba(255, 255, 255, 0.45), inset 0 -4px 10px rgba(56, 189, 248, 0.22);
+}
+
+.stat-info {
+  text-align: center;
+  flex: 1;
+}
+
+.stat-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.94);
+  line-height: 1.2;
+}
+
+.stat-val {
+  font-size: 16.5px;
+  font-weight: 900;
+  letter-spacing: -0.3px;
+  direction: ltr;
+  display: inline-block;
+  line-height: 1.3;
+}
+
+.stat-card.green .stat-val {
+  color: #10b981;
+  text-shadow: 0 1px 2px rgba(4, 25, 45, 0.35);
+}
+
+.stat-card.red .stat-val {
+  color: #ef4444;
+  text-shadow: 0 1px 2px rgba(4, 25, 45, 0.35);
+}
+
+.icon-3d-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.icon-3d-box.green {
+  background: linear-gradient(145deg, #2dd4bf, #0d9488);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 3px 8px rgba(13, 148, 136, 0.35), inset 0 1px 1.5px rgba(255, 255, 255, 0.55);
+}
+
+.icon-3d-box.red {
+  background: linear-gradient(145deg, #38bdf8, #0369a1);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 3px 8px rgba(3, 105, 161, 0.35), inset 0 1px 1.5px rgba(255, 255, 255, 0.55);
+}
+
+/* شريط البحث والفلتر */
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.search-box {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-box input {
+  width: 100%;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--border-light);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
+  box-shadow: 0 5px 14px rgba(5, 22, 54, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.42);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  color: #fff;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 0 38px 0 14px;
+  outline: none;
+  margin: 0;
+}
+
+.search-box input::placeholder {
+  color: rgba(235, 246, 255, 0.8);
+}
+
+.search-icon {
+  position: absolute;
+  right: 13px;
+  pointer-events: none;
+  opacity: 0.92;
+  display: grid;
+}
+
+.filter-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  border: 1px solid var(--border-light);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.07));
+  box-shadow: 0 5px 14px rgba(5, 22, 54, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex: none;
+}
+.filter-btn.active {
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+  box-shadow: var(--glow-cyan);
+}
+
+/* بطاقات القائمة */
+.glass-card {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(186, 230, 253, 0.35);
+  border-radius: 20px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 5px 14px rgba(5, 22, 54, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.glass-card:active { transform: scale(0.985); }
+
+.avatar-3d {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: linear-gradient(145deg, rgba(56, 189, 248, 0.45), rgba(2, 132, 199, 0.35));
+  border: 1px solid rgba(224, 242, 254, 0.6);
+  box-shadow: 0 3px 8px rgba(7, 45, 95, 0.25), inset 0 1px 1.5px rgba(255, 255, 255, 0.55);
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 16px;
+  color: #fff;
+  flex: none;
+}
+
+.card-main { flex: 1; min-width: 0; }
+.card-title { font-weight: 800; font-size: 14.5px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-sub { font-size: 11.5px; color: var(--ink-dim); display: block; }
+
+.amt-box { text-align: end; }
+.amt-num { font-weight: 900; font-size: 14.5px; direction: ltr; display: block; }
+.amt-num.r { color: var(--red-txt); }
+.amt-num.g { color: var(--green-txt); }
+.amt-num.z { color: var(--ink-dim); }
+
+.del-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(186, 230, 253, 0.28);
+  color: rgba(255, 255, 255, 0.88);
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex: none;
+}
+
+/* الحالة الفارغة */
+.empty-3d {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px 0 18px;
+}
+
+.empty-3d p {
+  font-size: 15px;
+  font-weight: 800;
+  margin: 8px 0 16px;
+  text-shadow: 0 2px 8px rgba(4, 20, 48, 0.3);
+}
+
+/* زر الإضافة التركوازي ثلاثي الأبعاد */
+.glow-cta {
+  background: linear-gradient(180deg, #5eead4 0%, #14b8a6 48%, #0f766e 100%);
+  border: 1.5px solid rgba(204, 251, 241, 0.85);
+  border-radius: 999px;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  font-size: 14.5px;
+  padding: 9px 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(13, 148, 136, 0.42), inset 0 1.5px 2px rgba(255, 255, 255, 0.65);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+  transition: transform 0.15s ease;
+}
+.glow-cta:active { transform: scale(0.96); }
+
+.fab-float {
+  position: fixed;
+  bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  white-space: nowrap;
+}
+.fab-float:active { transform: translateX(-50%) scale(0.96); }
+
+/* أزرار أعطيت (أخضر/لي) وأخذت (أزرق/عليّ) */
+.dual-bar {
+  position: fixed;
+  bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+  inset-inline: 16px;
+  max-width: 408px;
+  margin: 0 auto;
+  display: flex;
+  gap: 10px;
+  z-index: 6;
+}
+
+.dual-btn {
+  flex: 1;
+  border-radius: 16px;
+  padding: 9px 12px;
+  font: inherit;
+  font-weight: 800;
+  font-size: 14px;
+  color: #fff;
+  cursor: pointer;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.dual-btn.red {
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.88), rgba(12, 74, 110, 0.92));
+  border: 1px solid rgba(186, 230, 253, 0.75);
+  box-shadow: 0 5px 14px rgba(3, 105, 161, 0.35), inset 0 1px 1.5px rgba(255, 255, 255, 0.5);
+}
+
+.dual-btn.green {
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.88), rgba(15, 118, 110, 0.92));
+  border: 1px solid rgba(153, 246, 228, 0.75);
+  box-shadow: 0 5px 14px rgba(13, 148, 136, 0.35), inset 0 1px 1.5px rgba(255, 255, 255, 0.5);
+}
+
+/* شريط التنقل السفلي العائم */
+.nav-dock {
+  position: fixed;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  inset-inline: 16px;
+  max-width: 408px;
+  margin: 0 auto;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.08));
+  border: 1px solid rgba(186, 230, 253, 0.45);
+  border-radius: 24px;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  box-shadow: 0 8px 22px rgba(5, 22, 54, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  z-index: 8;
+}
+
+.nav-item {
+  flex: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 19px;
+  padding: 5px 4px;
+  color: rgba(235, 246, 255, 0.9);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  transition: all 0.22s ease;
+}
+
+.nav-item.active {
+  background: linear-gradient(160deg, #38bdf8 0%, #0284c7 65%, #0369a1 100%);
+  border: 1px solid rgba(224, 242, 254, 0.78);
+  color: #fff;
+  font-weight: 800;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.45), inset 0 1px 2px rgba(255, 255, 255, 0.55);
+}
+
+/* تنسيق بطاقات الإعدادات المنظمة */
+.set-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 4px 0 18px;
+}
+
+.set-hero-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(56, 189, 248, 0.35), rgba(2, 132, 199, 0.2));
+  border: 1.5px solid rgba(186, 230, 253, 0.65);
+  box-shadow: 0 8px 20px rgba(3, 105, 161, 0.35), inset 0 1px 2px rgba(255, 255, 255, 0.65);
+  display: grid;
+  place-items: center;
+  margin-bottom: 8px;
+}
+
+.set-hero-title {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.3px;
+  position: relative;
+  padding-bottom: 6px;
+}
+
+.set-hero-title::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 64px;
+  height: 2.5px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, transparent, #38bdf8, transparent);
+}
+
+.set-panel {
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(186, 230, 253, 0.42);
+  border-radius: 22px;
+  padding: 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 8px 20px rgba(5, 22, 54, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.48);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+
+.set-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  color: #fff;
+}
+
+.set-mini-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: linear-gradient(145deg, rgba(56, 189, 248, 0.45), rgba(2, 132, 199, 0.3));
+  border: 1px solid rgba(186, 230, 253, 0.6);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.set-panel .seg-wrap {
+  margin-bottom: 0;
+  background: rgba(6, 28, 66, 0.28);
+}
+
+.set-panel input {
+  width: 100%;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(186, 230, 253, 0.45);
+  background: rgba(6, 28, 66, 0.28);
+  box-shadow: inset 0 2px 6px rgba(4, 18, 46, 0.25);
+  color: #fff;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 700;
+  padding: 0 16px;
+  outline: none;
+}
+.set-panel input::placeholder { color: rgba(224, 242, 254, 0.65); }
+
+.set-reset-panel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.set-reset-panel:active { transform: scale(0.985); }
+
+.set-reset-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: linear-gradient(145deg, #38bdf8, #0284c7);
+  border: 1.5px solid rgba(224, 242, 254, 0.75);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4), inset 0 1px 2px rgba(255, 255, 255, 0.6);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.user-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.user-avatar-lg {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2px solid rgba(224, 242, 254, 0.8);
+  object-fit: cover;
+  background: rgba(56, 189, 248, 0.35);
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 18px;
+  flex: none;
+}
+.logout-btn {
+  background: rgba(239, 68, 68, 0.22);
+  border: 1px solid rgba(252, 165, 165, 0.55);
+  color: #fff;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  flex: none;
+}
+
+/* بطاقات الإحصائيات */
+.stats-progress {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(6, 28, 66, 0.35);
+  border: 1px solid rgba(186, 230, 253, 0.35);
+  overflow: hidden;
+  display: flex;
+  margin: 10px 0 6px;
+}
+
+/* النوافذ المنبثقة */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 20, 48, 0.58);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 20;
+  padding: 12px;
+}
+
+.sheet-box {
+  width: 100%;
+  max-width: 416px;
+  background: linear-gradient(165deg, rgba(14, 58, 122, 0.92), rgba(10, 42, 92, 0.96));
+  border: 1px solid rgba(186, 230, 253, 0.45);
+  border-radius: 26px;
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 18px 42px rgba(2, 12, 32, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+.sheet-box input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(186, 230, 253, 0.38);
+  border-radius: 14px;
+  padding: 11px 14px;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  margin-top: 10px;
+  outline: none;
+}
+.sheet-box input::placeholder { color: rgba(224, 242, 254, 0.65); }
+
+.hero-balance {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(186, 230, 253, 0.42);
+  border-radius: 22px;
+  padding: 14px;
+  text-align: center;
+  margin-bottom: 12px;
+  box-shadow: 0 6px 18px rgba(5, 22, 54, 0.18), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+  backdrop-filter: var(--blur);
+}
+.hero-balance .big-num {
+  font-size: 28px;
+  font-weight: 900;
+  direction: ltr;
+  display: inline-block;
+  margin-top: 2px;
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+import { initializeApp, getApps, deleteApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+/* ==========================================================================
+   إعدادات مشروع Firebase المدمجة (credit-2b87e)
+   ========================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAVbA4WIgmc5LzuXWXRNC-2IbPCTQG5nMQ",
+  authDomain: "credit-2b87e.firebaseapp.com",
+  projectId: "credit-2b87e",
+  storageBucket: "credit-2b87e.firebasestorage.app",
+  messagingSenderId: "222917215707",
+  appId: "1:222917215707:web:95284d3b638dedd44013fe",
+  measurementId: "G-4M6Y1E79EX"
+};
+
+const GUEST_MODE_KEY = "kridi-guest-mode";
+const LOCAL_BASE_KEY = "kridi-v2";
+const D = 864e5;
+
+let fbApp = null, auth = null, db = null, unsubDoc = null;
+let currentUser = null;
+let authReady = false;
+let authBusy = false;
+let syncState = "idle";
+
+let S = { p: [], l: [], n: 1, s: "" };
+let V = "list", tab = "c", sel = null, q = "", sortByAmt = false, sheet = null, cf = null, toastMsg = "";
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const f = n => (Math.round(n * 10) / 10).toFixed(1) + " د.م.";
+const fd = t => {
+  const d = new Date(t);
+  return d.toLocaleDateString("ar-MA-u-nu-latn", { day: "numeric", month: "long", year: "numeric" }) +
+    " · " + d.toLocaleTimeString("ar-MA-u-nu-latn", { hour: "2-digit", minute: "2-digit", hour12: false });
+};
+const bal = p => p.x.reduce((s, x) => s + (x.k === "g" ? x.a : -x.a), 0);
+const ago = p => {
+  if (!p.x.length) return "جديد";
+  const d = Math.max(0, Math.round((Date.now() - Math.max(...p.x.map(x => x.d))) / D));
+  if (d === 0) return "اليوم";
+  if (d === 1) return "منذ يوم واحد";
+  if (d === 2) return "منذ يومين";
+  if (d <= 10) return "منذ " + d + " أيام";
+  return "منذ " + d + " يوماً";
+};
+
+const isDark = () => document.documentElement.dataset.theme === "dark";
+const setTheme = t => {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem(LOCAL_BASE_KEY + "-theme", t); } catch (e) {}
+};
+try {
+  const t = localStorage.getItem(LOCAL_BASE_KEY + "-theme");
+  document.documentElement.dataset.theme = t === "dark" ? "dark" : "light";
+} catch (e) {
+  document.documentElement.dataset.theme = "light";
+}
+
+const storageKeyForUser = () => currentUser ? `${LOCAL_BASE_KEY}-${currentUser.uid}` : LOCAL_BASE_KEY;
+
+function loadLocalData() {
+  try {
+    const raw = localStorage.getItem(storageKeyForUser());
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.p)) {
+        S = { p: parsed.p || [], l: parsed.l || [], n: parsed.n || 1, s: parsed.s || "" };
+        return;
+      }
+    }
+  } catch (e) {}
+  S = { p: [], l: [], n: 1, s: "" };
+}
+
+let cloudSaveTimer = null;
+async function save() {
+  try { localStorage.setItem(storageKeyForUser(), JSON.stringify(S)); } catch (e) {}
+
+  if (db && currentUser && !currentUser.isGuest) {
+    syncState = "syncing";
+    render();
+    clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = setTimeout(async () => {
+      try {
+        await setDoc(doc(db, "users", currentUser.uid), {
+          p: S.p,
+          l: S.l,
+          n: S.n,
+          s: S.s,
+          email: currentUser.email || "",
+          displayName: currentUser.displayName || "",
+          updatedAt: Date.now()
+        }, { merge: true });
+        syncState = "synced";
+      } catch (err) {
+        console.error("Firestore sync error:", err);
+        syncState = "offline";
+      }
+      render();
+    }, 350);
+  }
+}
+
+async function bindUserCloudData(user) {
+  if (unsubDoc) { unsubDoc(); unsubDoc = null; }
+  currentUser = user;
+  loadLocalData();
+
+  if (!db || !user || user.isGuest) {
+    syncState = "offline";
+    authReady = true;
+    render();
+    return;
+  }
+
+  syncState = "syncing";
+  authReady = true;
+  render();
+
+  const userRef = doc(db, "users", user.uid);
+  try {
+    const snap = await getDoc(userRef);
+    if (snap.exists()) {
+      const d = snap.data();
+      S = { p: d.p || [], l: d.l || [], n: d.n || 1, s: d.s || "" };
+      try { localStorage.setItem(storageKeyForUser(), JSON.stringify(S)); } catch (e) {}
+    } else {
+      await setDoc(userRef, {
+        p: S.p,
+        l: S.l,
+        n: S.n,
+        s: S.s,
+        email: user.email || "",
+        displayName: user.displayName || "",
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      });
+    }
+    syncState = "synced";
+
+    unsubDoc = onSnapshot(userRef, s => {
+      if (s.metadata.hasPendingWrites || !s.exists()) return;
+      const d = s.data();
+      S = { p: d.p || [], l: d.l || [], n: d.n || 1, s: d.s || "" };
+      try { localStorage.setItem(storageKeyForUser(), JSON.stringify(S)); } catch (e) {}
+      render();
+    });
+  } catch (err) {
+    console.error("Error loading user cloud data:", err);
+    syncState = "offline";
+    showToast("تأكد من تفعيل Firestore ونشر قواعد الأمان");
+  }
+  render();
+}
+
+async function initFirebase() {
+  try {
+    for (const app of getApps()) await deleteApp(app);
+    fbApp = initializeApp(FIREBASE_CONFIG);
+    auth = getAuth(fbApp);
+    db = getFirestore(fbApp);
+
+    onAuthStateChanged(auth, async user => {
+      if (user) {
+        localStorage.removeItem(GUEST_MODE_KEY);
+        await bindUserCloudData(user);
+      } else if (localStorage.getItem(GUEST_MODE_KEY) === "1") {
+        await bindUserCloudData({ uid: "local-user", displayName: "حساب محلي", email: "محفوظ على هذا الجهاز", isGuest: true });
+      } else {
+        if (unsubDoc) { unsubDoc(); unsubDoc = null; }
+        currentUser = null;
+        authReady = true;
+        render();
+      }
+    });
+  } catch (err) {
+    console.error("Firebase init failed:", err);
+    currentUser = null;
+    authReady = true;
+    render();
+  }
+}
+
+async function handleGoogleLogin() {
+  if (!auth) return;
+  authBusy = true;
+  render();
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    await signInWithPopup(auth, provider);
+    showToast("تم تسجيل الدخول بنجاح");
+  } catch (err) {
+    console.error(err);
+    if (err.code === "auth/unauthorized-domain") {
+      showToast("أضف رابط موقعك في Authorized domains داخل Firebase");
+    } else if (err.code === "auth/operation-not-allowed") {
+      showToast("فعّل خيار Google في Sign-in method داخل Firebase");
+    } else {
+      showToast("لم يكتمل الدخول: " + (err.code || "حاول مجدداً"));
+    }
+  } finally {
+    authBusy = false;
+    render();
+  }
+}
+
+async function handleLogout() {
+  if (unsubDoc) { unsubDoc(); unsubDoc = null; }
+  localStorage.removeItem(GUEST_MODE_KEY);
+  S = { p: [], l: [], n: 1, s: "" };
+  V = "list";
+  sel = null;
+  q = "";
+  if (auth && currentUser && !currentUser.isGuest) {
+    try { await signOut(auth); } catch (e) {}
+  }
+  currentUser = null;
+  render();
+}
+
+const ICONS = {
+  googleG: `<svg width="22" height="22" viewBox="0 0 48 48" style="flex:none">
+    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+  </svg>`,
+  authNotebookGlass: `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+    <rect x="13" y="8" width="24" height="32" rx="6.5" stroke="#FFFFFF" stroke-width="2.6" fill="rgba(255,255,255,0.08)"/>
+    <line x1="19.5" y1="8.5" x2="19.5" y2="39.5" stroke="#FFFFFF" stroke-width="2" opacity="0.75"/>
+    <rect x="9.5" y="14" width="6.5" height="3.2" rx="1.6" fill="#FFFFFF"/>
+    <rect x="9.5" y="22.4" width="6.5" height="3.2" rx="1.6" fill="#FFFFFF"/>
+    <rect x="9.5" y="30.8" width="6.5" height="3.2" rx="1.6" fill="#FFFFFF"/>
+  </svg>`,
+  notebook3D: `<svg width="26" height="26" viewBox="0 0 36 36" fill="none">
+    <defs>
+      <linearGradient id="nb1" x1="6" y1="4" x2="30" y2="32" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#7DD3FC"/><stop offset="1" stop-color="#0284C7"/>
+      </linearGradient>
+    </defs>
+    <rect x="7" y="4" width="22" height="28" rx="5" fill="url(#nb1)" stroke="#FFF" stroke-width="1.5"/>
+    <rect x="11" y="4" width="3" height="28" fill="#0369A1" opacity="0.5"/>
+    <rect x="5" y="9" width="4" height="2.5" rx="1.2" fill="#FFF"/>
+    <rect x="5" y="16.5" width="4" height="2.5" rx="1.2" fill="#FFF"/>
+    <rect x="5" y="24" width="4" height="2.5" rx="1.2" fill="#FFF"/>
+  </svg>`,
+  editPen: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
+  menu: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>`,
+  users3D: `<svg width="19" height="19" viewBox="0 0 28 28" fill="none">
+    <circle cx="14" cy="10" r="4.2" fill="#fff"/>
+    <path d="M7.5 22c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" fill="#fff"/>
+    <circle cx="7.5" cy="11.5" r="3" fill="#fff" opacity="0.75"/>
+    <path d="M3 21c0-2.5 2-4.3 4.5-4.3" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity="0.75"/>
+    <circle cx="20.5" cy="11.5" r="3" fill="#fff" opacity="0.75"/>
+    <path d="M25 21c0-2.5-2-4.3-4.5-4.3" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity="0.75"/>
+  </svg>`,
+  truck3D: `<svg width="19" height="19" viewBox="0 0 28 28" fill="none">
+    <rect x="3" y="8" width="14" height="11" rx="2.5" fill="#fff"/>
+    <path d="M17 11h4.2l2.8 3.5V19h-7v-8Z" fill="#fff" opacity="0.9"/>
+    <circle cx="8.5" cy="20" r="2.6" fill="#0c4a6e" stroke="#fff" stroke-width="1.8"/>
+    <circle cx="20.5" cy="20" r="2.6" fill="#0c4a6e" stroke="#fff" stroke-width="1.8"/>
+  </svg>`,
+  arrowDown: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4-4m4 4 4-4"/><path d="M5 17v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1"/></svg>`,
+  arrowUp: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4m0 0-4 4m4-4 4 4"/><path d="M5 17v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1"/></svg>`,
+  search: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`,
+  filter: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>`,
+  addUser3D: `<svg width="18" height="18" viewBox="0 0 28 28" fill="none">
+    <circle cx="16" cy="9.5" r="4.5" fill="#fff"/>
+    <path d="M8.5 23c0-4 3.3-6.8 7.5-6.8s7.5 2.8 7.5 6.8" fill="#fff"/>
+    <path d="M6 11v6M3 14h6" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+  </svg>`,
+  wallet3D: `<svg width="18" height="18" viewBox="0 0 28 28" fill="none">
+    <rect x="4" y="7" width="20" height="15" rx="4" fill="#fff"/>
+    <path d="M18 12.5h6v4h-6a2 2 0 1 1 0-4Z" fill="#0284c7"/>
+    <circle cx="18.5" cy="14.5" r="1" fill="#fff"/>
+  </svg>`,
+  store3D: `<svg width="18" height="18" viewBox="0 0 28 28" fill="none">
+    <path d="M5 11.5h18v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-10Z" fill="#fff" opacity="0.92"/>
+    <path d="M4 8.5 6.5 5h15L24 8.5a2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1-5 0Z" fill="#fff"/>
+    <rect x="11.5" y="16" width="5" height="7.5" rx="1" fill="#0284c7"/>
+  </svg>`,
+  stats3D: `<svg width="18" height="18" viewBox="0 0 28 28" fill="none">
+    <rect x="5" y="14" width="4.5" height="9" rx="1.8" fill="#fff" opacity="0.82"/>
+    <rect x="11.8" y="9" width="4.5" height="14" rx="1.8" fill="#fff"/>
+    <rect x="18.5" y="5" width="4.5" height="18" rx="1.8" fill="#fff" opacity="0.92"/>
+  </svg>`,
+  gearBig: `<svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+    <path d="M12.2 4.5h3.6l.6 2.5c.6.2 1.2.5 1.7.9l2.4-.9 1.8 3.1-1.9 1.7c.1.6.1 1.3 0 1.9l1.9 1.7-1.8 3.1-2.4-.9c-.5.4-1.1.7-1.7.9l-.6 2.5h-3.6l-.6-2.5c-.6-.2-1.2-.5-1.7-.9l-2.4.9-1.8-3.1 1.9-1.7a7.5 7.5 0 0 1 0-1.9l-1.9-1.7 1.8-3.1 2.4.9c.5-.4 1.1-.7 1.7-.9l.6-2.5Z" fill="#fff"/>
+    <circle cx="14" cy="13.8" r="3.4" fill="#0369a1"/>
+  </svg>`,
+  screenMini: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>`,
+  storeMini: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M3 9l2-4h14l2 4v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9Z"/><path d="M9 21v-6h6v6"/></svg>`,
+  cloudMini: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>`,
+  resetSpin: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>`,
+  emptyClipboard3D: `<svg width="160" height="140" viewBox="0 0 220 190" fill="none">
+    <defs>
+      <linearGradient id="gPlate" x1="40" y1="145" x2="180" y2="175" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#67E8F9" stop-opacity="0.55"/><stop offset="1" stop-color="#0284C7" stop-opacity="0.22"/>
+      </linearGradient>
+      <linearGradient id="gBoard" x1="75" y1="20" x2="165" y2="145" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#FFFFFF" stop-opacity="0.58"/><stop offset="1" stop-color="#7DD3FC" stop-opacity="0.2"/>
+      </linearGradient>
+      <radialGradient id="gAvatar" cx="0.35" cy="0.3" r="0.7">
+        <stop stop-color="#E0F2FE"/><stop offset="0.55" stop-color="#38BDF8"/><stop offset="1" stop-color="#0369A1"/>
+      </radialGradient>
+    </defs>
+    <ellipse cx="110" cy="156" rx="68" ry="18" fill="url(#gPlate)" stroke="#BAE6FD" stroke-opacity="0.65" stroke-width="1.5"/>
+    <ellipse cx="110" cy="153" rx="56" ry="13" stroke="#7DD3FC" stroke-opacity="0.5" stroke-width="1"/>
+    <rect x="82" y="34" width="76" height="98" rx="16" fill="url(#gBoard)" stroke="#E0F2FE" stroke-opacity="0.8" stroke-width="2"/>
+    <rect x="105" y="25" width="30" height="16" rx="8" fill="#BAE6FD" fill-opacity="0.85" stroke="#FFFFFF" stroke-width="1.5"/>
+    <path d="M96 64l5 5 10-10" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="118" y="61" width="26" height="5" rx="2.5" fill="#FFFFFF" fill-opacity="0.85"/>
+    <path d="M96 86l5 5 10-10" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="118" y="83" width="26" height="5" rx="2.5" fill="#FFFFFF" fill-opacity="0.85"/>
+    <path d="M68 62l-10-6M64 76H52M68 90l-10 6" stroke="#7DD3FC" stroke-width="3.2" stroke-linecap="round"/>
+    <circle cx="66" cy="116" r="10" fill="url(#gAvatar)" stroke="#E0F2FE" stroke-opacity="0.75" stroke-width="1.2"/>
+    <path d="M51 146c0-8.5 6.5-14 15-14s15 5.5 15 14" fill="url(#gAvatar)" stroke="#E0F2FE" stroke-opacity="0.75" stroke-width="1.2"/>
+    <circle cx="112" cy="116" r="10" fill="url(#gAvatar)" stroke="#E0F2FE" stroke-opacity="0.75" stroke-width="1.2"/>
+    <path d="M97 146c0-8.5 6.5-14 15-14s15 5.5 15 14" fill="url(#gAvatar)" stroke="#E0F2FE" stroke-opacity="0.75" stroke-width="1.2"/>
+    <circle cx="89" cy="112" r="12.5" fill="url(#gAvatar)" stroke="#FFFFFF" stroke-opacity="0.9" stroke-width="1.5"/>
+    <path d="M69 150c0-10.5 8.5-17.5 20-17.5s20 7 20 17.5" fill="url(#gAvatar)" stroke="#FFFFFF" stroke-opacity="0.9" stroke-width="1.5"/>
+  </svg>`
+};
+
+function userAvatarBadge() {
+  if (!currentUser) return "";
+  const dot = !currentUser.isGuest ? `<span class="sync-dot ${syncState === "syncing" ? "syncing" : ""}"></span>` : "";
+  if (currentUser.photoURL) {
+    return `<button class="glass-circle" data-v="set" title="${esc(currentUser.displayName || "الحساب")}"><img src="${esc(currentUser.photoURL)}" alt="">${dot}</button>`;
+  }
+  const initial = (currentUser.displayName || currentUser.email || "م")[0];
+  return `<button class="glass-circle" data-v="set" title="الحساب"><span style="font-weight:900;font-size:14px">${esc(initial)}</span>${dot}</button>`;
+}
+
+function render() {
+  const a = $("#app");
+  let h = "";
+
+  if (!authReady) {
+    a.innerHTML = `
+      <div class="auth-waves"></div>
+      <div class="auth-screen">
+        <div class="auth-logo-box">${ICONS.authNotebookGlass}</div>
+        <p style="position:relative;z-index:2;font-weight:800">جاري التحقق من الحساب...</p>
+      </div>`;
+    return;
+  }
+
+  /* شاشة تسجيل الدخول بتصميم Liquid 3D Frosted Glass */
+  if (!currentUser) {
+    h += `
+    <div class="auth-waves">
+      <svg viewBox="0 0 430 932" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="wave1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#7dd3fc" stop-opacity="0.45"/>
+            <stop offset="100%" stop-color="#0284c7" stop-opacity="0.05"/>
+          </linearGradient>
+          <linearGradient id="wave2" x1="100%" y1="10%" x2="0%" y2="90%">
+            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.38"/>
+            <stop offset="100%" stop-color="#1e3a8a" stop-opacity="0.25"/>
+          </linearGradient>
+        </defs>
+        <path d="M-40 0 C120 140, 290 60, 470 220 L470 0 Z" fill="url(#wave1)"/>
+        <path d="M470 180 C280 280, 140 480, -40 420 L-40 932 L470 932 Z" fill="url(#wave2)"/>
+        <path d="M-40 680 C160 610, 290 790, 470 720 L470 932 L-40 932 Z" fill="url(#wave1)"/>
+      </svg>
+    </div>
+
+    <div class="auth-screen">
+      <div class="auth-card">
+        <div class="auth-logo-box">${ICONS.authNotebookGlass}</div>
+        <h1 class="auth-title">دفتر الكريدي</h1>
+        <p class="auth-desc">
+          سجّل الدخول بحساب جوجل لحفظ ديونك وحسابات متجرك بشكل خاص ومستقل لكل حساب، والوصول إليها من أي جهاز.
+        </p>
+
+        <button class="google-btn" data-glogin ${authBusy ? "disabled" : ""}>
+          <span>${authBusy ? "جاري الاتصال بجوجل..." : "المتابعة باستخدام Google"}</span>
+          ${ICONS.googleG}
+        </button>
+
+        <button class="guest-link" data-guest>الدخول بدون حساب (حفظ على الهاتف فقط)</button>
+      </div>
+    </div>`;
+  } else {
+    if (V === "list") {
+      const L = S.p.filter(p => p.t === tab);
+      const all = L.map(bal);
+      const liTotal = all.filter(b => b > 0).reduce((s, b) => s + b, 0);
+      const alayyaTotal = -all.filter(b => b < 0).reduce((s, b) => s + b, 0);
+      let shown = L.filter(p => p.n.toLowerCase().includes(q.toLowerCase()));
+      if (sortByAmt) shown = [...shown].sort((x, y) => Math.abs(bal(y)) - Math.abs(bal(x)));
+
+      h += `
+      <header class="header">
+        <button class="glass-circle" data-v="set" title="الإعدادات">${ICONS.menu}</button>
+        <div class="brand-wrap" data-sheet="edittitle" title="اضغط لتعديل العنوان">
+          <span>${esc(S.s || "دفتر الكريدي")}</span>
+          ${ICONS.notebook3D}
+          <span class="edit-hint">${ICONS.editPen}</span>
+        </div>
+        ${userAvatarBadge()}
+      </header>
+
+      <div class="seg-wrap">
+        <button class="seg-btn ${tab === "c" ? "active" : ""}" data-tab="c">
+          ${ICONS.users3D}
+          <span>العملاء</span>
+        </button>
+        <button class="seg-btn ${tab === "s" ? "active" : ""}" data-tab="s">
+          ${ICONS.truck3D}
+          <span>الموردون</span>
+        </button>
+      </div>
+
+      <div class="cards-grid">
+        <div class="stat-card green">
+          <div class="icon-3d-box green">${ICONS.arrowUp}</div>
+          <div class="stat-info">
+            <div class="stat-label">لي</div>
+            <div class="stat-val">${f(liTotal)}</div>
+          </div>
+        </div>
+        <div class="stat-card red">
+          <div class="icon-3d-box red">${ICONS.arrowDown}</div>
+          <div class="stat-info">
+            <div class="stat-label">عليّ</div>
+            <div class="stat-val">${f(alayyaTotal)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="search-row">
+        <div class="search-box">
+          <span class="search-icon">${ICONS.search}</span>
+          <input id="q" placeholder="البحث عن ${tab === "c" ? "عميل" : "مورد"}..." value="${esc(q)}">
+        </div>
+        <button class="filter-btn ${sortByAmt ? "active" : ""}" data-sort title="ترتيب حسب المبلغ">${ICONS.filter}</button>
+      </div>`;
+
+      if (shown.length) {
+        h += shown.map(p => {
+          const b = bal(p);
+          const amtHtml = b > 0
+            ? `<span class="amt-num g">${f(b)}</span><span class="card-sub">لي</span>`
+            : b < 0
+              ? `<span class="amt-num r">${f(-b)}</span><span class="card-sub">عليّ</span>`
+              : `<span class="amt-num z">0.0 د.م.</span>`;
+          return `
+          <div class="glass-card" data-open="${p.id}">
+            <div class="avatar-3d">${esc(p.n[0] || "؟")}</div>
+            <div class="card-main">
+              <span class="card-title">${esc(p.n)}</span>
+              <span class="card-sub">${ago(p)}</span>
+            </div>
+            <div class="amt-box">${amtHtml}</div>
+            <button class="del-btn" data-delp="${p.id}" title="حذف">🗑</button>
+          </div>`;
+        }).join("");
+        h += `<button class="glow-cta fab-float" data-sheet="newc">${ICONS.addUser3D}<span>إضافة</span></button>`;
+      } else {
+        h += `
+        <div class="empty-3d">
+          ${ICONS.emptyClipboard3D}
+          <p>${q ? "لا توجد نتائج مطابقة لهذا البحث." : `لا يوجد أي ${tab === "c" ? "عميل" : "مورد"} حالياً، أضف واحداً جديداً.`}</p>
+          <button class="glow-cta" data-sheet="newc">
+            ${ICONS.addUser3D}
+            <span>إضافة</span>
+          </button>
+        </div>`;
+      }
+    }
+
+    if (V === "detail") {
+      const p = S.p.find(x => x.id === sel);
+      if (!p) { V = "list"; return render(); }
+      const b = bal(p);
+      let run = 0;
+      const rows = [...p.x].sort((x, y) => x.d - y.d).map(x => {
+        run += x.k === "g" ? x.a : -x.a;
+        return { ...x, r: run };
+      }).reverse();
+
+      h += `
+      <header class="header">
+        <button class="glass-circle" data-back>›</button>
+        <div class="brand-wrap" style="font-size:19px;cursor:default">${esc(p.n)}</div>
+        <button class="glass-circle" data-delp="${p.id}" title="حذف">🗑</button>
+      </header>
+
+      <div class="hero-balance">
+        <div class="card-sub">صافي الحساب (${b > 0 ? "لي" : b < 0 ? "عليّ" : "خالص"})</div>
+        <div class="big-num" style="color:${b > 0 ? "var(--green-txt)" : b < 0 ? "var(--red-txt)" : "#fff"}">${f(Math.abs(b))}</div>
+      </div>
+
+      <div class="card-sub" style="margin:0 6px 8px;font-weight:700">المعاملات (${p.x.length})</div>
+      ${rows.length ? rows.map(x => `
+        <div class="glass-card" style="cursor:default">
+          <div class="icon-3d-box ${x.k === "g" ? "green" : "red"}" style="width:32px;height:32px">
+            ${x.k === "g" ? ICONS.arrowUp : ICONS.arrowDown}
+          </div>
+          <div class="card-main">
+            <span class="card-title" style="font-size:13px">${fd(x.d)}</span>
+            <span class="card-sub">الرصيد: ${f(Math.abs(x.r))} (${x.r > 0 ? "لي" : x.r < 0 ? "عليّ" : "0"})${x.m ? " · " + esc(x.m) : ""}</span>
+          </div>
+          <div class="amt-box">
+            <span class="amt-num ${x.k === "g" ? "g" : "r"}">${f(x.a)}</span>
+            <span class="card-sub">${x.k === "g" ? "أعطيت (لي)" : "أخذت (عليّ)"}</span>
+          </div>
+          <button class="del-btn" data-delx="${x.d}">✕</button>
+        </div>`).join("") : `<div class="empty-3d"><p>لا توجد معاملات مسجلة مع ${esc(p.n)}.</p></div>`}
+
+      <div class="dual-bar">
+        <button class="dual-btn green" data-sheet="g">↑ أعطيت</button>
+        <button class="dual-btn red" data-sheet="t">↓ أخذت</button>
+      </div>`;
+    }
+
+    if (V === "ledger") {
+      const I = S.l.filter(x => x.k === "i").reduce((s, x) => s + x.a, 0);
+      const O = S.l.filter(x => x.k === "o").reduce((s, x) => s + x.a, 0);
+      let run = 0;
+      const rows = [...S.l].sort((x, y) => x.d - y.d).map(x => {
+        run += x.k === "i" ? x.a : -x.a;
+        return { ...x, r: run };
+      }).reverse();
+
+      h += `
+      <header class="header">
+        <button class="glass-circle" data-v="set" title="الإعدادات">${ICONS.menu}</button>
+        <div class="brand-wrap" style="cursor:default">${ICONS.store3D}<span>حساب المتجر</span></div>
+        ${userAvatarBadge()}
+      </header>
+
+      <div class="cards-grid">
+        <div class="stat-card green">
+          <div class="icon-3d-box green">${ICONS.arrowDown}</div>
+          <div class="stat-info">
+            <div class="stat-label">المداخيل</div>
+            <div class="stat-val">${f(I)}</div>
+          </div>
+        </div>
+        <div class="stat-card red">
+          <div class="icon-3d-box red">${ICONS.arrowUp}</div>
+          <div class="stat-info">
+            <div class="stat-label">المصاريف</div>
+            <div class="stat-val">${f(O)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-balance" style="padding:10px">
+        <span class="card-sub">صافي صندوق المتجر: </span>
+        <strong style="font-size:18px;color:${I - O >= 0 ? "var(--green-txt)" : "var(--red-txt)"};direction:ltr;display:inline-block">${f(I - O)}</strong>
+      </div>
+
+      <div class="card-sub" style="margin:0 6px 8px;font-weight:700">سجل الصندوق (${S.l.length})</div>
+      ${rows.length ? rows.map(x => `
+        <div class="glass-card" style="cursor:default">
+          <div class="icon-3d-box ${x.k === "i" ? "green" : "red"}" style="width:32px;height:32px">
+            ${x.k === "i" ? ICONS.arrowDown : ICONS.arrowUp}
+          </div>
+          <div class="card-main">
+            <span class="card-title" style="font-size:13px">${fd(x.d)}</span>
+            <span class="card-sub">الرصيد: ${f(x.r)}${x.m ? " · " + esc(x.m) : ""}</span>
+          </div>
+          <div class="amt-box">
+            <span class="amt-num ${x.k === "i" ? "g" : "r"}">${f(x.a)}</span>
+            <span class="card-sub">${x.k === "i" ? "مدخول" : "مصروف"}</span>
+          </div>
+          <button class="del-btn" data-dell="${x.d}">✕</button>
+        </div>`).join("") : `<div class="empty-3d"><p>سجل المتجر فارغ حالياً.</p></div>`}
+
+      <div class="dual-bar">
+        <button class="dual-btn red" data-sheet="o">− مصروف</button>
+        <button class="dual-btn green" data-sheet="i">+ مدخول</button>
+      </div>`;
+    }
+
+    if (V === "stats") {
+      const clients = S.p.filter(p => p.t === "c");
+      const suppliers = S.p.filter(p => p.t === "s");
+      const cLi = clients.map(bal).filter(b => b > 0).reduce((s, b) => s + b, 0);
+      const cAlayya = -clients.map(bal).filter(b => b < 0).reduce((s, b) => s + b, 0);
+      const sLi = suppliers.map(bal).filter(b => b > 0).reduce((s, b) => s + b, 0);
+      const sAlayya = -suppliers.map(bal).filter(b => b < 0).reduce((s, b) => s + b, 0);
+
+      const totalIn = S.l.filter(x => x.k === "i").reduce((s, x) => s + x.a, 0);
+      const totalOut = S.l.filter(x => x.k === "o").reduce((s, x) => s + x.a, 0);
+      const storeNet = totalIn - totalOut;
+
+      const totalTx = S.p.reduce((s, p) => s + p.x.length, 0) + S.l.length;
+      const totalFlow = totalIn + totalOut || 1;
+      const inPct = Math.round((totalIn / totalFlow) * 100);
+
+      const topDebtors = [...S.p]
+        .map(p => ({ n: p.n, t: p.t, b: bal(p) }))
+        .filter(p => p.b !== 0)
+        .sort((x, y) => Math.abs(y.b) - Math.abs(x.b))
+        .slice(0, 4);
+
+      h += `
+      <header class="header">
+        <button class="glass-circle" data-v="set" title="الإعدادات">${ICONS.menu}</button>
+        <div class="brand-wrap" style="cursor:default">${ICONS.stats3D}<span>الإحصائيات</span></div>
+        ${userAvatarBadge()}
+      </header>
+
+      <div class="cards-grid">
+        <div class="stat-card green">
+          <div class="icon-3d-box green">${ICONS.users3D}</div>
+          <div class="stat-info">
+            <div class="stat-label">العملاء / الموردون</div>
+            <div class="stat-val" style="color:#fff">${clients.length} / ${suppliers.length}</div>
+          </div>
+        </div>
+        <div class="stat-card red">
+          <div class="icon-3d-box red">${ICONS.stats3D}</div>
+          <div class="stat-info">
+            <div class="stat-label">إجمالي المعاملات</div>
+            <div class="stat-val" style="color:#fff">${totalTx}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="set-panel">
+        <div class="set-panel-head">
+          <span class="set-mini-badge">${ICONS.wallet3D}</span>
+          <span>ملخص الديون (العملاء والموردون)</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+          <span style="color:var(--ink-dim)">حسابات العملاء (لي / عليّ):</span>
+          <strong style="direction:ltr"><span style="color:var(--green-txt)">${f(cLi)}</span> / <span style="color:var(--red-txt)">${f(cAlayya)}</span></strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px">
+          <span style="color:var(--ink-dim)">حسابات الموردين (لي / عليّ):</span>
+          <strong style="direction:ltr"><span style="color:var(--green-txt)">${f(sLi)}</span> / <span style="color:var(--red-txt)">${f(sAlayya)}</span></strong>
+        </div>
+      </div>
+
+      <div class="set-panel">
+        <div class="set-panel-head">
+          <span class="set-mini-badge">${ICONS.store3D}</span>
+          <span>أداء صندوق المتجر</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px">
+          <span>المداخيل: <strong style="color:var(--green-txt)">${f(totalIn)}</strong></span>
+          <span>المصاريف: <strong style="color:var(--red-txt)">${f(totalOut)}</strong></span>
+        </div>
+        <div class="stats-progress">
+          <div style="width:${totalIn || totalOut ? inPct : 50}%;background:linear-gradient(90deg,#2dd4bf,#10b981)"></div>
+          <div style="flex:1;background:linear-gradient(90deg,#38bdf8,#0284c7)"></div>
+        </div>
+        <div style="text-align:center;font-size:13.5px;margin-top:6px">
+          <span style="color:var(--ink-dim)">الرصيد الصافي: </span>
+          <strong style="color:${storeNet >= 0 ? "var(--green-txt)" : "var(--red-txt)"};direction:ltr;display:inline-block">${f(storeNet)}</strong>
+        </div>
+      </div>
+
+      <div class="card-sub" style="margin:0 6px 8px;font-weight:700">أكبر الأرصدة النشطة</div>
+      ${topDebtors.length ? topDebtors.map(p => `
+        <div class="glass-card" style="cursor:default">
+          <div class="avatar-3d">${esc(p.n[0] || "؟")}</div>
+          <div class="card-main">
+            <span class="card-title">${esc(p.n)}</span>
+            <span class="card-sub">${p.t === "c" ? "عميل" : "مورد"}</span>
+          </div>
+          <div class="amt-box">
+            <span class="amt-num ${p.b > 0 ? "g" : "r"}">${f(Math.abs(p.b))}</span>
+            <span class="card-sub">${p.b > 0 ? "لي" : "عليّ"}</span>
+          </div>
+        </div>`).join("") : `<div class="empty-3d" style="padding:12px 0"><p style="font-size:13.5px;margin:0">لا توجد أرصدة نشطة لعرضها حالياً.</p></div>`}`;
+    }
+
+    if (V === "set") {
+      const avatarHtml = currentUser.photoURL
+        ? `<img class="user-avatar-lg" src="${esc(currentUser.photoURL)}" alt="">`
+        : `<div class="user-avatar-lg">${esc((currentUser.displayName || "م")[0])}</div>`;
+
+      h += `
+      <div style="display:flex;justify-content:flex-start;margin-bottom:2px">
+        <button class="glass-circle" data-back title="رجوع">›</button>
+      </div>
+
+      <div class="set-hero">
+        <div class="set-hero-icon">${ICONS.gearBig}</div>
+        <div class="set-hero-title">الإعدادات</div>
+      </div>
+
+      <div class="set-panel">
+        <div class="set-panel-head">
+          <span class="set-mini-badge">${ICONS.cloudMini}</span>
+          <span>الحساب والمزامنة السحابية</span>
+        </div>
+        <div class="user-profile-row">
+          ${avatarHtml}
+          <div class="card-main">
+            <span class="card-title">${esc(currentUser.displayName || "مستخدم دفتر الكريدي")}</span>
+            <span class="card-sub">${esc(currentUser.email || "")}</span>
+            <span class="card-sub" style="color:#7dd3fc;margin-top:2px">
+              ${currentUser.isGuest ? "● تخزين محلي على هذا الجهاز" : syncState === "syncing" ? "↻ جاري المزامنة..." : "✓ البيانات محمية ومربوطة بحسابك"}
+            </span>
+          </div>
+          <button class="logout-btn" data-logout>خروج</button>
+        </div>
+        ${currentUser.isGuest ? `
+          <button class="google-btn" style="height:44px;font-size:14px;margin-top:12px" data-glogin>
+            <span>ربط بحساب Google الآن</span>
+            ${ICONS.googleG}
+          </button>` : ""}
+      </div>
+
+      <div class="set-panel">
+        <div class="set-panel-head">
+          <span class="set-mini-badge">${ICONS.screenMini}</span>
+          <span>إضاءة الواجهة</span>
+        </div>
+        <div class="seg-wrap">
+          <button class="seg-btn ${!isDark() ? "active" : ""}" data-theme-set="light">☀️ مضيء</button>
+          <button class="seg-btn ${isDark() ? "active" : ""}" data-theme-set="dark">🌙 ليلي</button>
+        </div>
+      </div>
+
+      <div class="set-panel">
+        <div class="set-panel-head">
+          <span class="set-mini-badge">${ICONS.storeMini}</span>
+          <span>اسم المتجر / العنوان</span>
+        </div>
+        <input id="sn" placeholder="دفتر الكريدي" value="${esc(S.s || "")}" maxlength="40">
+      </div>
+
+      <div class="set-panel set-reset-panel" data-reset>
+        <div class="set-reset-icon">${ICONS.resetSpin}</div>
+        <div class="card-main">
+          <span class="card-title" style="font-size:15px">إعادة الضبط</span>
+          <span class="card-sub">مسح بيانات هذا الحساب والرجوع إلى الصفر</span>
+        </div>
+      </div>`;
+    }
+
+    h += `
+    <nav class="nav-dock">
+      <button class="nav-item ${V === "list" || V === "detail" ? "active" : ""}" data-v="list">
+        ${ICONS.wallet3D}
+        <span>حساب الكريدي</span>
+      </button>
+      <button class="nav-item ${V === "ledger" ? "active" : ""}" data-v="ledger">
+        ${ICONS.store3D}
+        <span>حساب المتجر</span>
+      </button>
+      <button class="nav-item ${V === "stats" ? "active" : ""}" data-v="stats">
+        ${ICONS.stats3D}
+        <span>الإحصائيات</span>
+      </button>
+    </nav>`;
+  }
+
+  if (toastMsg) {
+    h += `<div style="position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(10, 42, 92, 0.92);border:1px solid rgba(186, 230, 253, 0.5);padding:7px 16px;border-radius:999px;font-size:12.5px;font-weight:700;z-index:30;backdrop-filter:blur(12px);max-width:90%;text-align:center">${esc(toastMsg)}</div>`;
+  }
+
+  if (cf) {
+    h += `
+    <div class="sheet-backdrop" data-close>
+      <div class="sheet-box">
+        <b style="font-size:17px">تأكيد العملية</b>
+        <p style="margin:8px 0 0;color:var(--ink-dim);font-size:14px">${esc(cf.m)}</p>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button class="dual-btn" style="background:rgba(255,255,255,0.12);border:1px solid rgba(186, 230, 253, 0.35)" data-cfno>إلغاء</button>
+          <button class="dual-btn red" data-cfok>تأكيد الحذف</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  if (sheet) {
+    const T = {
+      g: "أعطيت (مبلغ لي)",
+      t: "أخذت (دين عليّ)",
+      i: "تسجيل مدخول المتجر",
+      o: "تسجيل مصروف المتجر",
+      newc: "إضافة " + (tab === "c" ? "عميل جديد" : "مورد جديد"),
+      edittitle: "تعديل العنوان الرئيسي"
+    };
+    let formHtml = "";
+    if (sheet === "newc") {
+      formHtml = `<input id="nm" placeholder="الاسم الكامل" autocomplete="off">`;
+    } else if (sheet === "edittitle") {
+      formHtml = `<input id="ttl" placeholder="اكتب العنوان الجديد (مثال: دفتر الكريدي)" value="${esc(S.s || "دفتر الكريدي")}" maxlength="40" autocomplete="off">`;
+    } else {
+      formHtml = `<input id="am" type="number" inputmode="decimal" min="0" placeholder="المبلغ (د.م.)">
+                  <input id="nt" placeholder="ملاحظة أو تفاصيل (اختياري)">`;
+    }
+    h += `
+    <div class="sheet-backdrop" data-close>
+      <div class="sheet-box">
+        <b style="font-size:17px">${T[sheet]}</b>
+        ${formHtml}
+        <button class="glow-cta" style="width:100%;margin-top:14px;padding:11px" data-ok>تأكيد وحفظ</button>
+      </div>
+    </div>`;
+  }
+
+  a.innerHTML = h;
+  const i = $("#am") || $("#nm") || $("#ttl");
+  if (i) { i.focus(); if (i.id === "ttl") i.select(); }
+  const qq = $("#q");
+  if (qq && document.activeElement !== qq && q) {
+    qq.focus();
+    qq.setSelectionRange(q.length, q.length);
+  }
+}
+
+const showToast = msg => {
+  toastMsg = msg;
+  render();
+  setTimeout(() => { toastMsg = ""; render(); }, 3200);
+};
+
+document.addEventListener("click", async e => {
+  const t = e.target.closest("[data-tab],[data-open],[data-back],[data-v],[data-sheet],[data-ok],[data-close],[data-delx],[data-dell],[data-delp],[data-reset],[data-theme-set],[data-cfok],[data-cfno],[data-sort],[data-glogin],[data-guest],[data-logout]");
+  if (!t) return;
+  const d = t.dataset;
+  if (t.hasAttribute("data-close") && e.target !== t) return;
+
+  if ("glogin" in d) { await handleGoogleLogin(); return; }
+  if ("guest" in d) {
+    localStorage.setItem(GUEST_MODE_KEY, "1");
+    await bindUserCloudData({ uid: "local-user", displayName: "حساب محلي", email: "محفوظ على هذا الجهاز", isGuest: true });
+    return;
+  }
+  if ("logout" in d) { await handleLogout(); return; }
+
+  if ("tab" in d) { tab = d.tab; q = ""; }
+  else if ("open" in d) { sel = +d.open; V = "detail"; }
+  else if ("back" in d) V = "list";
+  else if ("v" in d) V = d.v;
+  else if ("sort" in d) { sortByAmt = !sortByAmt; showToast(sortByAmt ? "تم الترتيب حسب أعلى مبلغ" : "تم إلغاء الفرز"); return; }
+  else if ("sheet" in d) sheet = d.sheet;
+  else if ("close" in d) { sheet = null; cf = null; }
+  else if ("ok" in d) {
+    if (sheet === "newc") {
+      const n = $("#nm").value.trim();
+      if (!n) return;
+      S.p.push({ id: S.n++, n, t: tab, x: [] });
+    } else if (sheet === "edittitle") {
+      const val = $("#ttl").value.trim();
+      S.s = val || "دفتر الكريدي";
+    } else {
+      const a = parseFloat($("#am").value);
+      if (!(a > 0)) return;
+      const m = $("#nt").value.trim();
+      const x = { k: sheet, a, m, d: Date.now() };
+      if (sheet === "i" || sheet === "o") S.l.push(x);
+      else S.p.find(p => p.id === sel).x.push(x);
+    }
+    sheet = null;
+    await save();
+  }
+  else if ("delx" in d) {
+    const p = S.p.find(x => x.id === sel);
+    p.x = p.x.filter(x => x.d !== +d.delx);
+    await save();
+  }
+  else if ("dell" in d) {
+    S.l = S.l.filter(x => x.d !== +d.dell);
+    await save();
+  }
+  else if ("delp" in d) {
+    const p = S.p.find(x => x.id === +d.delp);
+    if (!p) return;
+    cf = { m: "سيتم حذف «" + p.n + "» وجميع معاملاته نهائياً. هل أنت متأكد؟", a: "delp", id: p.id };
+  }
+  else if ("cfno" in d) cf = null;
+  else if ("cfok" in d) {
+    if (cf.a === "reset") { S = { p: [], l: [], n: 1, s: "" }; tab = "c"; q = ""; sel = null; V = "list"; }
+    else if (cf.a === "delp") { S.p = S.p.filter(p => p.id !== cf.id); V = "list"; sel = null; }
+    cf = null;
+    await save();
+  }
+  else if ("themeSet" in d) setTheme(d.themeSet);
+  else if ("reset" in d) cf = { m: "سيتم مسح جميع بيانات هذا الحساب والعودة إلى الصفر. هل أنت متأكد؟", a: "reset" };
+
+  render();
+});
+
+document.addEventListener("input", e => {
+  if (e.target.id === "sn") { S.s = e.target.value.trim(); save(); }
+  if (e.target.id === "q") { q = e.target.value; render(); }
+});
+
+initFirebase();
+</script>
+</body>
+</html>
