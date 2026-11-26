@@ -1427,6 +1427,16 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
 .pin-forgot{background:none;border:0;color:rgba(255,255,255,.85);font:inherit;font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;text-decoration:underline}
 @keyframes pinshake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-9px)}40%,80%{transform:translateX(9px)}}
 .shake{animation:pinshake .4s}
+/* PIN fields in sheets: same size as other inputs */
+.sheet-box input[type="password"]{display:block;width:100%;height:48px;padding:0 15px;margin-top:10px;font:inherit;font-size:16px;font-weight:700;color:#fff;outline:none;text-align:center;letter-spacing:8px;border-radius:25px;box-sizing:border-box}
+.sheet-box input[type="password"]::placeholder{letter-spacing:0;font-size:14px;font-weight:600}
+.sheet-box>b{display:block;margin-bottom:4px}
+/* chart + day summary */
+.mbar{width:13px;border-radius:7px 7px 2px 2px}
+.mbar.in{background:linear-gradient(180deg,#34d399,#00eaff)}
+.mbar.out{background:linear-gradient(180deg,#fb7185,#a34cff)}
+.day-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:7px}
+.set-panel input[type="date"]{display:block;width:100%;height:46px;padding:0 14px;font:inherit;font-size:15px;color:#fff;border-radius:22px;box-sizing:border-box}
 </style>
 </head>
 <body>
@@ -1462,6 +1472,7 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
   var authReady = true; /* يبدأ جاهزاً فوراً حتى لا تظهر شاشة فارغة أبداً */
   var authBusy = false;
   var authMode = "login";
+  var authEmail = "", authName = "";
   var showPass = false;
   var syncState = "idle";
   var cloudAvailable = false;
@@ -1469,7 +1480,7 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
   var CATS = ["سلعة", "كراء", "كهرباء", "ماء", "أجور", "نقل", "أخرى"];
 
   var S = { p: [], l: [], n: 1, s: "" };
-  var V = "list", tab = "c", sel = null, q = "", sortByAmt = false, onlyOverdue = false, sheet = null, cf = null, toastMsg = "", editId = null, undoState = null, undoTimer = null, navPrev = -1;
+  var V = "list", tab = "c", sel = null, q = "", sortByAmt = false, onlyOverdue = false, sheet = null, cf = null, toastMsg = "", editId = null, undoState = null, undoTimer = null, navPrev = -1, qFocus = false, limitAck = "", dayStr = "";
 
   function $(s) { return document.querySelector(s); }
   function esc(s) {
@@ -1477,7 +1488,11 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
       return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c];
     });
   }
-  function f(n) { return (Math.round(n * 10) / 10).toFixed(1) + " د.م."; }
+  function f(n) {
+    var parts = (Math.round(n * 10) / 10).toFixed(1).split(".");
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return parts.join(".") + " د.م.";
+  }
   function fd(t) {
     var d = new Date(t);
     try {
@@ -1664,7 +1679,7 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
     return h + '<div class="card-sub" style="margin-bottom:6px">القفل مفعّل ✓ · يتقفل أوتوماتيكيا بعد:</div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' + chips + '</div>' +
       '<div style="display:flex;flex-direction:column;gap:8px">' +
-      (lockCfg.bio ? '<button class="export-btn" data-lockbiooff>🫆 إيقاف البصمة</button>' : '<button class="export-btn primary" data-lockbioset>🫆 تفعيل البصمة</button>') +
+      (lockCfg.bio ? '<button class="export-btn" data-lockbiooff>🫆 إيقاف البصمة</button>' : (window.PublicKeyCredential && !isNative() ? '<button class="export-btn primary" data-lockbioset>🫆 تفعيل البصمة</button>' : '')) +
       '<button class="export-btn" data-lockchg>تغيير الرمز</button>' +
       '<button class="export-btn" data-lockoff>إيقاف القفل</button></div></div>';
   }
@@ -1696,6 +1711,92 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
     }
   } catch (e) {}
 
+  /* WebView ديال أندرويد: Google ما كيسمحش بتسجيل الدخول داخلو */
+  function isWebView() {
+    var ua = (typeof navigator !== "undefined" && navigator.userAgent) || "";
+    return /; wv\)/.test(ua) || /Version\/[\d.]+ Chrome\/[\d.]+/.test(ua);
+  }
+  /* Capacitor (تطبيق الأندرويد): مشاركة الملفات عبر Filesystem + Share */
+  function isNative() {
+    return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  }
+  function nativeShareFile(name, data, isBase64, title) {
+    var P = window.Capacitor.Plugins || {};
+    if (!P.Filesystem || !P.Share) return Promise.reject(new Error("no-plugins"));
+    var o = { path: name, data: data, directory: "CACHE" };
+    if (!isBase64) o.encoding = "utf8";
+    return P.Filesystem.writeFile(o).then(function (r) {
+      return P.Share.share({ title: title || name, dialogTitle: title || name, url: r.uri });
+    });
+  }
+  /* ملخص اليوم + رسم بياني شهري */
+  function ymd(ts) {
+    var d = new Date(ts);
+    return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+  }
+  function daySummary(ds) {
+    var r = { inc: 0, out: 0, given: 0, taken: 0, count: 0 };
+    S.l.forEach(function (x) { if (ymd(x.d) === ds) { if (x.k === "i") r.inc += x.a; else r.out += x.a; r.count++; } });
+    S.p.forEach(function (p) {
+      p.x.forEach(function (x) { if (ymd(x.d) === ds) { if (x.k === "g") r.given += x.a; else r.taken += x.a; r.count++; } });
+    });
+    return r;
+  }
+  function dayText(ds) {
+    var r = daySummary(ds);
+    return ["*" + (S.s || "دفتر الكريدي") + "* - ملخص يوم " + ds,
+      "المداخيل: " + f(r.inc), "المصاريف: " + f(r.out), "الصافي: " + f(r.inc - r.out),
+      "ديون جديدة (أعطيت): " + f(r.given), "المحصّل (أخذت): " + f(r.taken), "عدد المعاملات: " + r.count].join("\n");
+  }
+  function shareDaySummary() {
+    var txt = dayText(dayStr || ymd(Date.now()));
+    if (navigator.share) { navigator.share({ text: txt }).catch(function () {}); return; }
+    window.open("https://wa.me/?text=" + encodeURIComponent(txt), "_blank");
+  }
+  function monthLabel(y, m) {
+    try { return new Date(y, m, 1).toLocaleDateString("ar-MA-u-nu-latn", { month: "short" }); } catch (e) { return String(m + 1); }
+  }
+  function shortNum(n) { return n >= 1000 ? (Math.round(n / 100) / 10) + "k" : String(Math.round(n)); }
+  function monthlyChartHtml() {
+    var now = new Date(), months = [];
+    for (var i = 5; i >= 0; i--) {
+      var d0 = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({ y: d0.getFullYear(), m: d0.getMonth(), inc: 0, out: 0 });
+    }
+    S.l.forEach(function (x) {
+      var d = new Date(x.d);
+      months.forEach(function (mo) {
+        if (mo.y === d.getFullYear() && mo.m === d.getMonth()) { if (x.k === "i") mo.inc += x.a; else mo.out += x.a; }
+      });
+    });
+    var maxV = 1;
+    months.forEach(function (mo) { maxV = Math.max(maxV, mo.inc, mo.out); });
+    function bar(v, cls) {
+      var h = v > 0 ? Math.max(4, Math.round(v / maxV * 100)) : 0;
+      return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">' +
+        (v > 0 ? '<span style="font-size:9px;opacity:.85;margin-bottom:2px">' + shortNum(v) + '</span>' : '') +
+        '<div class="mbar ' + cls + '" style="height:' + h + '%"></div></div>';
+    }
+    var cur = months[5];
+    return '<div class="set-panel"><div class="set-panel-head"><span class="set-mini-badge">' + ICONS.stats3D + '</span><span>المداخيل والمصاريف (آخر 6 أشهر)</span></div>' +
+      '<div style="display:flex;gap:6px;height:118px;align-items:stretch;direction:ltr">' +
+      months.map(function (mo) {
+        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0">' +
+          '<div style="display:flex;gap:3px;height:100px;align-items:flex-end;width:100%;justify-content:center">' + bar(mo.inc, "in") + bar(mo.out, "out") + '</div>' +
+          '<span class="card-sub" style="font-size:10.5px">' + monthLabel(mo.y, mo.m) + '</span></div>';
+      }).join("") + '</div>' +
+      '<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:8px"><span><span style="color:var(--green-txt)">●</span> مداخيل</span><span><span style="color:var(--red-txt)">●</span> مصاريف</span>' +
+      '<span>هاد الشهر: ' + f(cur.inc - cur.out) + '</span></div></div>';
+  }
+  function dayPanelHtml() {
+    var ds = dayStr || ymd(Date.now()), r = daySummary(ds);
+    function row(l, v, c) { return '<div class="day-row"><span style="color:var(--ink-dim)">' + l + '</span><strong' + (c ? ' style="color:var(--' + c + '-txt)"' : '') + '>' + v + '</strong></div>'; }
+    return '<div class="set-panel"><div class="set-panel-head"><span class="set-mini-badge">' + ICONS.fileMini + '</span><span>ملخص اليوم</span></div>' +
+      '<input id="day-dt" type="date" value="' + esc(ds) + '" style="margin-bottom:10px">' +
+      row("المداخيل", f(r.inc), "green") + row("المصاريف", f(r.out), "red") + row("الصافي", f(r.inc - r.out), r.inc - r.out >= 0 ? "green" : "red") +
+      row("ديون جديدة (أعطيت)", f(r.given)) + row("المحصّل (أخذت)", f(r.taken)) + row("عدد المعاملات", String(r.count)) +
+      '<button class="export-btn primary" style="width:100%;margin-top:6px" data-day-share>📤 مشاركة الملخص</button></div>';
+  }
   function navIdx() { return (V === "list" || V === "detail") ? 0 : V === "ledger" ? 1 : V === "stats" ? 2 : -1; }
   function newId() { return "x" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
   function newPid() { return Date.now() * 1000 + Math.floor(Math.random() * 1000); }
@@ -1723,13 +1824,15 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
         if (tx.due) obj.due = String(tx.due);
         return obj;
       }) : [];
-      return {
+      var party = {
         id: Number(item.id) || (idx + 1),
         n: String(item.n || "بدون اسم"),
         ph: String(item.ph || ""),
         t: item.t === "s" ? "s" : "c",
         x: txList
       };
+      if (Number(item.lim) > 0) party.lim = Number(item.lim);
+      return party;
     });
     var lRaw = Array.isArray(raw.l) ? raw.l : [];
     var lClean = lRaw.map(function (tx, li) {
@@ -1779,6 +1882,7 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
     if (!digits) return "";
     if (digits.indexOf("00") === 0) digits = digits.slice(2);
     else if (digits.charAt(0) === "0" && digits.length === 10) digits = "212" + digits.slice(1);
+    else if (digits.length === 9 && /^[5-7]/.test(digits)) digits = "212" + digits;
     return digits;
   }
 
@@ -1921,6 +2025,15 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
 
       canvas.toBlob(function (blob) {
         if (!blob) return;
+        if (isNative()) {
+          var fr = new FileReader();
+          fr.onload = function () {
+            nativeShareFile("kridi-statement.png", String(fr.result).split(",")[1], true, "كشف حساب " + p.n)
+              .catch(function () { showToast("تعذر مشاركة الصورة"); });
+          };
+          fr.readAsDataURL(blob);
+          return;
+        }
         var file = new File([blob], "كشف-" + p.n + ".png", { type: "image/png" });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           navigator.share({ files: [file], title: "كشف حساب " + p.n, text: buildStatementText(p) });
@@ -1930,7 +2043,7 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
           a.href = url;
           a.download = "كشف-حساب-" + p.n + ".png";
           a.click();
-          URL.revokeObjectURL(url);
+          setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
           showToast("تم حفظ صورة كشف الحساب على هاتفك");
         }
       }, "image/png");
@@ -1939,6 +2052,15 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
     }
   }
 
+  function csvText(v) {
+    v = String(v == null ? "" : v);
+    if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;
+    return '"' + v.replace(/"/g, '""') + '"';
+  }
+  function csvPhone(v) {
+    v = String(v || "").replace(/[^\d+]/g, "");
+    return v ? '"=""' + v + '"""' : '""';
+  }
   function exportExcelCSV(type) {
     var csv = "﻿";
     if (type === "debts") {
@@ -1947,13 +2069,19 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
         var b = bal(p);
         var role = p.t === "c" ? "عميل" : "مورد";
         var status = b > 0 ? "لي" : b < 0 ? "عليّ" : "خالص";
-        csv += '"' + p.n.replace(/"/g, '""') + '","' + role + '","' + (p.ph || "") + '",' + Math.abs(b).toFixed(1) + ',"' + status + '",' + p.x.length + "\n";
+        csv += csvText(p.n) + "," + csvText(role) + "," + csvPhone(p.ph) + "," + Math.abs(b).toFixed(1) + "," + csvText(status) + "," + p.x.length + "\n";
       });
     } else {
-      csv += "التاريخ,النوع,المبلغ (د.م.),الملاحظة\n";
+      csv += "التاريخ,النوع,المبلغ (د.م.),الفئة,الملاحظة\n";
       S.l.slice().sort(function (a, b) { return b.d - a.d; }).forEach(function (x) {
-        csv += '"' + fd(x.d) + '","' + (x.k === "i" ? "مدخول" : "مصروف") + '",' + x.a.toFixed(1) + ',"' + (x.m || "").replace(/"/g, '""') + '"\n';
+        csv += csvText(fd(x.d)) + "," + csvText(x.k === "i" ? "مدخول" : "مصروف") + "," + x.a.toFixed(1) + "," + csvText(x.c || "") + "," + csvText(x.m || "") + "\n";
       });
+    }
+    if (isNative()) {
+      nativeShareFile(type === "debts" ? "kridi-debts.csv" : "kridi-ledger.csv", csv, false, type === "debts" ? "تقرير الديون" : "سجل المتجر")
+        .then(function () { showToast("تم تجهيز ملف Excel (CSV)"); })
+        .catch(function () { showToast("تعذر مشاركة الملف"); });
+      return;
     }
     var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     var url = URL.createObjectURL(blob);
@@ -1961,7 +2089,7 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
     a.href = url;
     a.download = type === "debts" ? "تقرير-الديون-دفتر-الكريدي.csv" : "سجل-صندوق-المتجر.csv";
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
     showToast("تم تنزيل ملف Excel (CSV) بنجاح");
   }
 
@@ -1982,9 +2110,7 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
         "</tbody></table>";
     }
 
-    var w = window.open("", "_blank");
-    if (!w) { showToast("يرجى السماح بالنوافذ المنبثقة للطباعة"); return; }
-    w.document.write('<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير ' + storeName + '</title>' +
+    var reportHtml = ('<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير ' + storeName + '</title>' +
       '<style>body{font-family:Tahoma,Arial,sans-serif;padding:24px;color:#111}h1{margin:0 0 6px}table{width:100%;border-collapse:collapse;margin:10px 0 22px}th,td{border:1px solid #ccc;padding:8px;text-align:right;font-size:13px}th{background:#f1f5f9}.box{background:#f8fafc;border:1px solid #cbd5e1;padding:12px;border-radius:8px;margin-bottom:18px}</style>' +
       '</head><body><h1>' + storeName + '</h1>' +
       '<p>تاريخ التقرير: ' + new Date().toLocaleDateString() + '</p>' +
@@ -1992,6 +2118,15 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
       renderTable("قائمة العملاء", cList) +
       renderTable("قائمة الموردين", sList) +
       '<script>window.onload=function(){window.print();};<\/script></body></html>');
+    if (isNative()) {
+      nativeShareFile("kridi-report.html", reportHtml.replace(/<script>[\s\S]*?<\/script>/, ""), false, "تقرير " + (S.s || "كريدي"))
+        .then(function () { showToast("تم تجهيز التقرير: افتحه فالمتصفح واطبعه PDF"); })
+        .catch(function () { showToast("تعذر مشاركة التقرير"); });
+      return;
+    }
+    var w = window.open("", "_blank");
+    if (!w) { showToast("يرجى السماح بالنوافذ المنبثقة للطباعة"); return; }
+    w.document.write(reportHtml);
     w.document.close();
   }
 
@@ -2054,7 +2189,9 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
   function flattenState(st) {
     var m = {};
     st.p.forEach(function (p) {
-      m["parties/" + p.id] = JSON.stringify({ id: p.id, n: p.n, ph: p.ph || "", t: p.t });
+      var po = { id: p.id, n: p.n, ph: p.ph || "", t: p.t };
+      if (p.lim > 0) po.lim = p.lim;
+      m["parties/" + p.id] = JSON.stringify(po);
       p.x.forEach(function (x) {
         var o = { pid: p.id, k: x.k, a: x.a, m: x.m || "", d: x.d };
         if (x.due) o.due = x.due;
@@ -2070,7 +2207,11 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
   }
 
   function docToJson(name, d) {
-    if (name === "parties") return JSON.stringify({ id: Number(d.id), n: String(d.n || ""), ph: String(d.ph || ""), t: d.t === "s" ? "s" : "c" });
+    if (name === "parties") {
+      var pd = { id: Number(d.id), n: String(d.n || ""), ph: String(d.ph || ""), t: d.t === "s" ? "s" : "c" };
+      if (Number(d.lim) > 0) pd.lim = Number(d.lim);
+      return JSON.stringify(pd);
+    }
     if (name === "txs") {
       var o = { pid: Number(d.pid), k: d.k === "t" ? "t" : "g", a: Number(d.a) || 0, m: String(d.m || ""), d: Number(d.d) || 0 };
       if (d.due) o.due = String(d.due);
@@ -2235,6 +2376,7 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
     if (unsubDoc) { unsubDoc(); unsubDoc = null; }
     session++;
     var sess = session;
+    undoState = null; clearTimeout(undoTimer); paintOverlay();
     dirty = false; inflight = 0; cloudReady = false; cloudDocs = {}; cloudMeta = {}; baseDocs = {}; baseS = "";
     clearTimeout(cloudSaveTimer);
     currentUser = user;
@@ -2329,6 +2471,8 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
       case "auth/operation-not-allowed": return "فعّل خيار البريد الإلكتروني في Authentication داخل Firebase";
       case "auth/unauthorized-domain": return "أضف رابط موقعك في Authorized domains داخل Firebase";
       case "auth/too-many-requests": return "محاولات كثيرة، انتظر قليلاً ثم حاول مجدداً";
+      case "auth/network-request-failed": return "تعذر الاتصال بالإنترنت، تحقق من الشبكة وحاول مجدداً";
+      case "auth/user-disabled": return "تم تعطيل هذا الحساب";
       default: return "حدث خطأ: " + (code || "تأكد من الاتصال بالإنترنت");
     }
   }
@@ -2343,6 +2487,7 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
     var fullName = ($("#auth-name") && $("#auth-name").value || "").trim();
     var remember = $("#auth-remember") ? $("#auth-remember").checked : true;
 
+    authEmail = email; authName = fullName;
     if (!email) { showToast("يرجى إدخال البريد الإلكتروني"); return; }
 
     if (authMode === "reset") {
@@ -2410,6 +2555,8 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
     if (currentUser && !currentUser.isGuest && dirty) { writeNow(currentUser.uid); }
     session++;
     cloudReady = false;
+    undoState = null; clearTimeout(undoTimer); toastMsg = ""; sheet = null; cf = null; authEmail = ""; authName = "";
+    paintOverlay();
     if (unsubDoc) { unsubDoc(); unsubDoc = null; }
     try { localStorage.removeItem(GUEST_MODE_KEY); } catch (e) {}
     S = normalizeState({});
@@ -2453,717 +2600,4 @@ body{background:var(--background-gradient);background-attachment:fixed;color:var
 
   function userAvatarBadge() {
     if (!currentUser) return "";
-    var dot = !currentUser.isGuest ? '<span class="sync-dot ' + (syncState === "syncing" ? "syncing" : "") + '"></span>' : "";
-    if (currentUser.photoURL) {
-      return '<button class="glass-circle" data-v="set" title="' + esc(currentUser.displayName || "الحساب") + '"><img src="' + esc(currentUser.photoURL) + '" alt="">' + dot + '</button>';
-    }
-    var initial = (currentUser.displayName || currentUser.email || "م")[0];
-    return '<button class="glass-circle" data-v="set" title="الحساب"><span style="font-weight:900;font-size:14px">' + esc(initial) + '</span>' + dot + '</button>';
-  }
-
-  function render() {
-    var a = $("#app");
-    if (!a) return;
-    if (locked && lockCfg) { a.innerHTML = lockHtml(); return; }
-    var h = "";
-
-    if (!currentUser) {
-      var isReg = authMode === "register";
-      var isReset = authMode === "reset";
-
-      var headingTxt = isReset ? "استعادة الحساب" : isReg ? "إنشاء حساب" : "تسجيل الدخول";
-      var subTxt = isReset
-        ? "أدخل بريدك الإلكتروني لإرسال رابط تعيين كلمة مرور جديدة"
-        : isReg
-          ? "أنشئ حسابك الخاص لحفظ ديونك وحسابات متجرك بأمان"
-          : "مرحباً بك في دفتر الكريدي، سجّل الدخول للمتابعة";
-      var submitLabel = authBusy
-        ? "جاري المعالجة..."
-        : isReset
-          ? "إرسال رابط الاستعادة ←"
-          : isReg
-            ? "إنشاء الحساب ←"
-            : "تسجيل الدخول ←";
-
-      h += '<div class="lq-auth-wrap"><div class="login-card">' +
-        '<div class="lq-avatar"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M3 21c0-5 3.5-8 9-8s9 3 9 8z"/></svg></div>' +
-        '<h1 class="lq-title">' + headingTxt + '</h1>' +
-        '<p class="lq-subtitle">' + subTxt + '</p>';
-
-      if (isReg) {
-        h += '<div class="input-box"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M4 21c0-4.5 3.5-7 8-7s8 2.5 8 7"/></svg>' +
-          '<input id="auth-name" type="text" placeholder="الاسم الكامل أو اسم المتجر" autocomplete="name"></div>';
-      }
-
-      h += '<div class="input-box"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m3 6 9 7 9-7"/></svg>' +
-        '<input id="auth-email" type="email" placeholder="البريد الإلكتروني" autocomplete="email" dir="ltr" style="text-align:right"></div>';
-
-      if (!isReset) {
-        h += '<div class="input-box"><svg viewBox="0 0 24 24"><rect x="3" y="10" width="18" height="12" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/></svg>' +
-          '<input id="auth-password" type="' + (showPass ? "text" : "password") + '" placeholder="' + (isReg ? "كلمة المرور (6 أحرف على الأقل)" : "كلمة المرور") + '" autocomplete="' + (isReg ? "new-password" : "current-password") + '" dir="ltr" style="text-align:right">' +
-          '<svg class="eye" data-toggle-pass viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div>';
-      }
-
-      if (!isReg && !isReset) {
-        h += '<div class="options"><label class="remember"><input type="checkbox" id="auth-remember" checked>تذكرني</label>' +
-          '<button type="button" class="forgot-link" data-authmode="reset">نسيت كلمة المرور؟</button></div>';
-      } else {
-        h += '<div style="height:8px"></div>';
-      }
-
-      h += '<button class="login-btn" type="button" data-email-submit ' + (authBusy ? "disabled" : "") + '>' + submitLabel + '</button>' +
-        '<div class="divider">أو</div>' +
-        '<button class="google-btn" type="button" data-glogin ' + (authBusy ? "disabled" : "") + '>' + ICONS.googleG + '<span>المتابعة باستخدام Google</span></button>';
-
-      if (isReg || isReset) {
-        h += '<button class="create-account-btn" type="button" data-authmode="login"><span>العودة إلى تسجيل الدخول</span></button>';
-      } else {
-        h += '<button class="create-account-btn" type="button" data-authmode="register"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M2 21c0-5 3-8 7-8s7 3 7 8"/><path d="M19 8v8M15 12h8"/></svg><span>إنشاء حساب جديد</span></button>';
-      }
-
-      h += '<button class="guest-link" type="button" data-guest>الدخول بدون حساب (حفظ على الهاتف فقط)</button>' +
-        '</div></div>';
-    } else {
-      if (V === "list") {
-        var L = S.p.filter(function (p) { return p.t === tab; });
-        var all = L.map(bal);
-        var liTotal = all.filter(function (b) { return b > 0; }).reduce(function (s, b) { return s + b; }, 0);
-        var alayyaTotal = -all.filter(function (b) { return b < 0; }).reduce(function (s, b) { return s + b; }, 0);
-        var overdueCount = L.filter(function (p) { var d = getDueStatus(p); return d && d.type === "overdue"; }).length;
-
-        var shown = L.filter(function (p) {
-          return p.n.toLowerCase().indexOf(q.toLowerCase()) !== -1 || (p.ph && p.ph.indexOf(q.trim()) !== -1);
-        });
-        if (onlyOverdue) {
-          shown = shown.filter(function (p) { var d = getDueStatus(p); return d && d.type === "overdue"; });
-        }
-        if (sortByAmt) {
-          shown = shown.slice().sort(function (x, y) { return Math.abs(bal(y)) - Math.abs(bal(x)); });
-        }
-
-        h += '<header class="header">' +
-          '<button class="glass-circle" data-v="set" title="الإعدادات">' + ICONS.menu + '</button>' +
-          '<div class="brand-wrap" data-sheet="edittitle" title="اضغط لتعديل العنوان"><span>' + esc(S.s || "دفتر الكريدي") + '</span>' + ICONS.notebook3D + '<span class="edit-hint">' + ICONS.editPen + '</span></div>' +
-          userAvatarBadge() +
-          '</header>' +
-          '<div class="seg-wrap">' +
-          '<button class="seg-btn ' + (tab === "c" ? "active" : "") + '" data-tab="c">' + ICONS.users3D + '<span>العملاء</span></button>' +
-          '<button class="seg-btn ' + (tab === "s" ? "active" : "") + '" data-tab="s">' + ICONS.truck3D + '<span>الموردون</span></button>' +
-          '</div>' +
-          '<div class="cards-grid">' +
-          '<div class="stat-card green"><div class="icon-3d-box green">' + ICONS.arrowUp + '</div><div class="stat-info"><div class="stat-label">لي</div><div class="stat-val">' + f(liTotal) + '</div></div></div>' +
-          '<div class="stat-card red"><div class="icon-3d-box red">' + ICONS.arrowDown + '</div><div class="stat-info"><div class="stat-label">عليّ</div><div class="stat-val">' + f(alayyaTotal) + '</div></div></div>' +
-          '</div>' +
-          '<div class="search-row"><div class="search-box"><span class="search-icon">' + ICONS.search + '</span><input id="q" placeholder="البحث بالاسم أو رقم الهاتف..." value="' + esc(q) + '"></div>' +
-          '<button class="filter-btn ' + (sortByAmt ? "active" : "") + '" data-sort title="ترتيب حسب المبلغ">' + ICONS.filter + '</button></div>' +
-          '<div class="chips-row">' +
-          '<button class="chip-btn ' + (!onlyOverdue && !sortByAmt ? "active" : "") + '" data-chip="all">الكل (' + L.length + ')</button>' +
-          '<button class="chip-btn warn ' + (onlyOverdue ? "active" : "") + '" data-chip="overdue">⏰ المتأخرون (' + overdueCount + ')</button>' +
-          '<button class="chip-btn ' + (sortByAmt ? "active" : "") + '" data-sort>💰 الأعلى مبلغاً</button>' +
-          '</div>';
-
-        if (shown.length) {
-          h += shown.map(function (p) {
-            var b = bal(p);
-            var due = getDueStatus(p);
-            var amtHtml = b > 0
-              ? '<span class="amt-num g">' + f(b) + '</span><span class="card-sub">لي</span>'
-              : b < 0
-                ? '<span class="amt-num r">' + f(-b) + '</span><span class="card-sub">عليّ</span>'
-                : '<span class="amt-num z">0.0 د.م.</span>';
-            return '<div class="glass-card ' + (due && due.type === "overdue" ? "is-overdue" : "") + '" data-open="' + p.id + '">' +
-              '<div class="avatar-3d">' + esc(p.n[0] || "؟") + '</div>' +
-              '<div class="card-main"><span class="card-title">' + esc(p.n) + '</span>' +
-              '<span class="card-sub">' + (p.ph ? esc(p.ph) + " · " : "") + ago(p) + '</span>' +
-              (due ? '<span class="badge-pill ' + due.type + '">' + (due.type === "overdue" ? "⚠️" : "📅") + ' ' + esc(due.label) + '</span>' : '') +
-              '</div><div class="amt-box">' + amtHtml + '</div>' +
-              '<button class="del-btn" data-delp="' + p.id + '" title="حذف">🗑</button></div>';
-          }).join("");
-          h += '<button class="glow-cta fab-float" data-sheet="newc">' + ICONS.addUser3D + '<span>إضافة</span></button>';
-        } else {
-          h += '<div class="empty-3d">' + ICONS.emptyClipboard3D +
-            '<p>' + (onlyOverdue ? "لا توجد ديون متأخرة حالياً." : q ? "لا توجد نتائج مطابقة لهذا البحث." : ("لا يوجد أي " + (tab === "c" ? "عميل" : "مورد") + " حالياً، أضف واحداً جديداً.")) + '</p>' +
-            '<button class="glow-cta" data-sheet="newc">' + ICONS.addUser3D + '<span>إضافة</span></button></div>';
-        }
-      }
-
-      if (V === "detail") {
-        var p = S.p.find(function (x) { return x.id === sel; });
-        if (!p) { V = "list"; return render(); }
-        var b = bal(p);
-        var due = getDueStatus(p);
-        var run = 0;
-        var rows = (p.x || []).slice().sort(function (x, y) { return x.d - y.d; }).map(function (x) {
-          run += x.k === "g" ? x.a : -x.a;
-          return { k: x.k, a: x.a, m: x.m, d: x.d, due: x.due, i: x.i, r: run };
-        }).reverse();
-
-        h += '<header class="header">' +
-          '<button class="glass-circle" data-back>›</button>' +
-          '<div class="brand-wrap" data-sheet="editc" title="تعديل الاسم ورقم الهاتف"><span>' + esc(p.n) + '</span><span class="edit-hint">' + ICONS.editPen + '</span></div>' +
-          '<button class="glass-circle" data-delp="' + p.id + '" title="حذف">🗑</button>' +
-          '</header>' +
-          '<div class="hero-balance"><div class="card-sub">صافي الحساب (' + (b > 0 ? "لي" : b < 0 ? "عليّ" : "خالص") + ')</div>' +
-          '<div class="big-num" style="color:' + (b > 0 ? "var(--green-txt)" : b < 0 ? "var(--red-txt)" : "#fff") + '">' + f(Math.abs(b)) + '</div>' +
-          (p.ph ? '<div class="card-sub" style="margin-top:3px;direction:ltr">' + esc(p.ph) + '</div>' : '') +
-          (due ? '<div><span class="badge-pill ' + due.type + '">' + (due.type === "overdue" ? "⚠️" : "📅") + ' ' + esc(due.label) + '</span></div>' : '') +
-          '</div>' +
-          '<div class="contact-actions-bar">' +
-          '<button class="act-pill" data-call>' + ICONS.phone + '<span>اتصال</span></button>' +
-          '<button class="act-pill wa" data-wa-chat>' + ICONS.whatsapp + '<span>واتساب</span></button>' +
-          '<button class="act-pill wa" data-wa-share>' + ICONS.whatsapp + '<span>كشف نصي</span></button>' +
-          '<button class="act-pill" data-img-share>' + ICONS.imageCard + '<span>كشف مصور</span></button>' +
-          '</div>' +
-          '<div class="card-sub" style="margin:0 6px 8px;font-weight:700">المعاملات (' + p.x.length + ')</div>';
-
-        if (rows.length) {
-          h += rows.map(function (x) {
-            return '<div class="glass-card" style="cursor:default">' +
-              '<div class="icon-3d-box ' + (x.k === "g" ? "green" : "red") + '" style="width:34px;height:34px">' + (x.k === "g" ? ICONS.arrowUp : ICONS.arrowDown) + '</div>' +
-              '<div class="card-main"><span class="card-title" style="font-size:13px">' + fd(x.d) + '</span>' +
-              '<span class="card-sub">الرصيد: ' + f(Math.abs(x.r)) + ' (' + (x.r > 0 ? "لي" : x.r < 0 ? "عليّ" : "0") + ')' + (x.m ? " · " + esc(x.m) : "") + '</span>' +
-              (x.due ? '<span class="badge-pill upcoming">📅 السداد: ' + fShortDate(x.due) + '</span>' : '') +
-              '</div><div class="amt-box"><span class="amt-num ' + (x.k === "g" ? "g" : "r") + '">' + f(x.a) + '</span>' +
-              '<span class="card-sub">' + (x.k === "g" ? "أعطيت (لي)" : "أخذت (عليّ)") + '</span></div>' +
-              '<button class="del-btn" data-edx="' + x.i + '" title="تعديل">✎</button><button class="del-btn" data-delx="' + x.i + '">✕</button></div>';
-          }).join("");
-        } else {
-          h += '<div class="empty-3d"><p>لا توجد معاملات مسجلة مع ' + esc(p.n) + '.</p></div>';
-        }
-
-        h += '<div class="dual-bar"><button class="dual-btn green" data-sheet="g">↑ أعطيت</button><button class="dual-btn red" data-sheet="t">↓ أخذت</button></div>';
-      }
-
-      if (V === "ledger") {
-        var I = S.l.filter(function (x) { return x.k === "i"; }).reduce(function (s, x) { return s + x.a; }, 0);
-        var O = S.l.filter(function (x) { return x.k === "o"; }).reduce(function (s, x) { return s + x.a; }, 0);
-        var runL = 0;
-        var rowsL = S.l.slice().sort(function (x, y) { return x.d - y.d; }).map(function (x) {
-          runL += x.k === "i" ? x.a : -x.a;
-          return { k: x.k, a: x.a, m: x.m, d: x.d, i: x.i, c: x.c, r: runL };
-        }).reverse();
-
-        h += '<header class="header"><button class="glass-circle" data-v="set" title="الإعدادات">' + ICONS.menu + '</button>' +
-          '<div class="brand-wrap" style="cursor:default">' + ICONS.store3D + '<span>حساب المتجر</span></div>' + userAvatarBadge() + '</header>' +
-          '<div class="cards-grid">' +
-          '<div class="stat-card green"><div class="icon-3d-box green">' + ICONS.arrowDown + '</div><div class="stat-info"><div class="stat-label">المداخيل</div><div class="stat-val">' + f(I) + '</div></div></div>' +
-          '<div class="stat-card red"><div class="icon-3d-box red">' + ICONS.arrowUp + '</div><div class="stat-info"><div class="stat-label">المصاريف</div><div class="stat-val">' + f(O) + '</div></div></div>' +
-          '</div>' +
-          '<div class="hero-balance" style="padding:11px"><span class="card-sub">صافي صندوق المتجر: </span>' +
-          '<strong style="font-size:18px;color:' + (I - O >= 0 ? "var(--green-txt)" : "var(--red-txt)") + ';direction:ltr;display:inline-block">' + f(I - O) + '</strong></div>' +
-          '<div class="card-sub" style="margin:0 6px 8px;font-weight:700">سجل الصندوق (' + S.l.length + ')</div>';
-
-        if (rowsL.length) {
-          h += rowsL.map(function (x) {
-            return '<div class="glass-card" style="cursor:default">' +
-              '<div class="icon-3d-box ' + (x.k === "i" ? "green" : "red") + '" style="width:34px;height:34px">' + (x.k === "i" ? ICONS.arrowDown : ICONS.arrowUp) + '</div>' +
-              '<div class="card-main"><span class="card-title" style="font-size:13px">' + fd(x.d) + '</span>' +
-              '<span class="card-sub">الرصيد: ' + f(x.r) + (x.m ? " · " + esc(x.m) : "") + '</span>' + (x.c ? '<span class="badge-pill upcoming">🏷 ' + esc(x.c) + '</span>' : '') + '</div>' +
-              '<div class="amt-box"><span class="amt-num ' + (x.k === "i" ? "g" : "r") + '">' + f(x.a) + '</span>' +
-              '<span class="card-sub">' + (x.k === "i" ? "مدخول" : "مصروف") + '</span></div>' +
-              '<button class="del-btn" data-edl="' + x.i + '" title="تعديل">✎</button><button class="del-btn" data-dell="' + x.i + '">✕</button></div>';
-          }).join("");
-        } else {
-          h += '<div class="empty-3d"><p>سجل المتجر فارغ حالياً.</p></div>';
-        }
-
-        h += '<div class="dual-bar"><button class="dual-btn red" data-sheet="o">− مصروف</button><button class="dual-btn green" data-sheet="i">+ مدخول</button></div>';
-      }
-
-      if (V === "stats") {
-        var clients = S.p.filter(function (p) { return p.t === "c"; });
-        var suppliers = S.p.filter(function (p) { return p.t === "s"; });
-        var cLi = clients.map(bal).filter(function (b) { return b > 0; }).reduce(function (s, b) { return s + b; }, 0);
-        var cAlayya = -clients.map(bal).filter(function (b) { return b < 0; }).reduce(function (s, b) { return s + b; }, 0);
-        var sLi = suppliers.map(bal).filter(function (b) { return b > 0; }).reduce(function (s, b) { return s + b; }, 0);
-        var sAlayya = -suppliers.map(bal).filter(function (b) { return b < 0; }).reduce(function (s, b) { return s + b; }, 0);
-
-        var totalIn = S.l.filter(function (x) { return x.k === "i"; }).reduce(function (s, x) { return s + x.a; }, 0);
-        var totalOut = S.l.filter(function (x) { return x.k === "o"; }).reduce(function (s, x) { return s + x.a; }, 0);
-        var storeNet = totalIn - totalOut;
-        var catMap = {};
-        S.l.forEach(function (x) { if (x.k === "o") { var cn = x.c || "بدون تصنيف"; catMap[cn] = (catMap[cn] || 0) + x.a; } });
-        var catRows = Object.keys(catMap).map(function (k) { return { c: k, v: catMap[k] }; }).sort(function (x, y) { return y.v - x.v; });
-        var catHtml = '<div class="set-panel"><div class="set-panel-head"><span class="set-mini-badge">' + ICONS.wallet3D + '</span><span>المصاريف حسب الفئة</span></div>' +
-          (catRows.length ? catRows.map(function (r) {
-            var pct = totalOut ? Math.round(r.v / totalOut * 100) : 0;
-            return '<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700"><span>' + esc(r.c) + '</span><span style="direction:ltr">' + f(r.v) + ' · ' + pct + '%</span></div>' +
-              '<div class="stats-progress" style="margin:4px 0 0"><div style="width:' + pct + '%;background:linear-gradient(90deg,#a34cff,#f43f5e)"></div></div></div>';
-          }).join("") : '<div class="card-sub">لا توجد مصاريف مسجلة بعد.</div>') + '</div>';
-
-        var totalTx = S.p.reduce(function (s, p) { return s + p.x.length; }, 0) + S.l.length;
-        var totalFlow = totalIn + totalOut || 1;
-        var inPct = Math.round((totalIn / totalFlow) * 100);
-
-        var topDebtors = S.p.map(function (p) { return { n: p.n, t: p.t, b: bal(p) }; })
-          .filter(function (p) { return p.b !== 0; })
-          .sort(function (x, y) { return Math.abs(y.b) - Math.abs(x.b); })
-          .slice(0, 4);
-
-        h += '<header class="header"><button class="glass-circle" data-v="set" title="الإعدادات">' + ICONS.menu + '</button>' +
-          '<div class="brand-wrap" style="cursor:default">' + ICONS.stats3D + '<span>الإحصائيات</span></div>' + userAvatarBadge() + '</header>' +
-          '<div class="cards-grid">' +
-          '<div class="stat-card green"><div class="icon-3d-box green">' + ICONS.users3D + '</div><div class="stat-info"><div class="stat-label">العملاء / الموردون</div><div class="stat-val" style="color:#fff">' + clients.length + ' / ' + suppliers.length + '</div></div></div>' +
-          '<div class="stat-card red"><div class="icon-3d-box red">' + ICONS.stats3D + '</div><div class="stat-info"><div class="stat-label">إجمالي المعاملات</div><div class="stat-val" style="color:#fff">' + totalTx + '</div></div></div>' +
-          '</div>' +
-          '<div class="set-panel"><div class="set-panel-head"><span class="set-mini-badge">' + ICONS.wallet3D + '</span><span>ملخص الديون (العملاء والموردون)</span></div>' +
-          '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:var(--ink-dim)">حسابات العملاء (لي / عليّ):</span><strong style="direction:ltr"><span style="color:var(--green-txt)">' + f(cLi) + '</span> / <span style="color:var(--red-txt)">' + f(cAlayya) + '</span></strong></div>' +
-          '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--ink-dim)">حسابات الموردين (لي / عليّ):</span><strong style="direction:ltr"><span style="color:var(--green-txt)">' + f(sLi) + '</span> / <span style="color:var(--red-txt)">' + f(sAlayya) + '</span></strong></div></div>' +
-          '<div class="set-panel"><div class="set-panel-head"><span class="set-mini-badge">' + ICONS.store3D + '</span><span>أداء صندوق المتجر</span></div>' +
-          '<div style="display:flex;justify-content:space-between;font-size:13px"><span>المداخيل: <strong style="color:var(--green-txt)">' + f(totalIn) + '</strong></span><span>المصاريف: <strong style="color:var(--red-txt)">' + f(totalOut) + '</strong></span></div>' +
-          '<div class="stats-progress"><div style="width:' + (totalIn || totalOut ? inPct : 50) + '%;background:linear-gradient(90deg,#00eaff,#34d399)"></div><div style="flex:1;background:linear-gradient(90deg,#a34cff,#f43f5e)"></div></div>' +
-          '<div style="text-align:center;font-size:13.5px;margin-top:6px"><span style="color:var(--ink-dim)">الرصيد الصافي: </span><strong style="color:' + (storeNet >= 0 ? "var(--green-txt)" : "var(--red-txt)") + ';direction:ltr;display:inline-block">' + f(storeNet) + '</strong></div></div>' +
-          catHtml +
-          '<div class="card-sub" style="margin:0 6px 8px;font-weight:700">أكبر الأرصدة النشطة</div>';
-
-        if (topDebtors.length) {
-          h += topDebtors.map(function (p) {
-            return '<div class="glass-card" style="cursor:default"><div class="avatar-3d">' + esc(p.n[0] || "؟") + '</div>' +
-              '<div class="card-main"><span class="card-title">' + esc(p.n) + '</span><span class="card-sub">' + (p.t === "c" ? "عميل" : "مورد") + '</span></div>' +
-              '<div class="amt-box"><span class="amt-num ' + (p.b > 0 ? "g" : "r") + '">' + f(Math.abs(p.b)) + '</span><span class="card-sub">' + (p.b > 0 ? "لي" : "عليّ") + '</span></div></div>';
-          }).join("");
-        } else {
-          h += '<div class="empty-3d" style="padding:12px 0"><p style="font-size:13.5px;margin:0">لا توجد أرصدة نشطة لعرضها حالياً.</p></div>';
-        }
-      }
-
-      if (V === "set") {
-        var avatarHtml = currentUser.photoURL
-          ? '<img class="user-avatar-lg" src="' + esc(currentUser.photoURL) + '" alt="">'
-          : '<div class="user-avatar-lg">' + esc((currentUser.displayName || currentUser.email || "م")[0]) + '</div>';
-
-        h += '<div style="display:flex;justify-content:flex-start;margin-bottom:2px"><button class="glass-circle" data-back title="رجوع">›</button></div>' +
-          '<div class="set-hero"><div class="set-hero-icon">' + ICONS.gearBig + '</div><div class="set-hero-title">الإعدادات</div></div>' +
-          '<div class="set-panel"><div class="set-panel-head"><span class="set-mini-badge">' + ICONS.cloudMini + '</span><span>الحساب والمزامنة السحابية</span></div>' +
-          '<div class="user-profile-row">' + avatarHtml +
-          '<div class="card-main"><span class="card-title">' + esc(currentUser.displayName || "مستخدم دفتر الكريدي") + '</span>' +
-          '<span class="card-sub">' + esc(currentUser.email || "") + '</span>' +
-          '<span class="card-sub" style="color:#8cefff;margin-top:2px">' + (currentUser.isGuest ? "● تخزين محلي على هذا الجهاز" : syncState === "syncing" ? "↻ جاري المزامنة..." : "✓ البيانات محمية ومربوطة بحسابك") + '</span></div>' +
-          '<button class="logout-btn" data-logout>خروج</button></div>' +
-          (currentUser.isGuest ? '<button class="google-btn-inline" data-logout><span>تسجيل الدخول أو إنشاء حساب الآن</span></button>' : '') +
-          '</div>' +
-          '<div class="set-panel"><div class="set-panel-head"><span class="set-mini-badge">' + ICONS.fileMini + '</span><span>التقارير والنسخ الاحتياطي (Excel / PDF)</span></div>' +
-          '<div class="export-grid"><button class="export-btn primary" data-exp-debts>📊 الديون (Excel)</button><button class="export-btn" data-exp-ledger>🧾 الصندوق (Excel)</button>' +
-          '<button class="export-btn" style="grid-column:span 2" data-exp-pdf>🖨️ طباعة / حفظ تقرير PDF شامل</button></div></div>' +
-          '<div class="set-panel"><div class="set-panel-head"><span class="set-mini-badge">' + ICONS.screenMini + '</span><span>إضاءة الواجهة</span></div>' +
-          '<div class="seg-wrap"><button class="seg-btn ' + (!isDark() ? "active" : "") + '" data-theme-set="light">☀️ مضيء</button><button class="seg-btn ' + (isDark() ? "active" : "") + '" data-theme-set="dark">🌙 ليلي</button></div></div>' +
-          '<div class="set-panel"><div class="set-panel-head"><span class="set-mini-badge">' + ICONS.storeMini + '</span><span>اسم المتجر / العنوان</span></div>' +
-          '<input id="sn" placeholder="دفتر الكريدي" value="' + esc(S.s || "") + '" maxlength="40"></div>' +
-          lockPanelHtml() +
-          '<div class="set-panel set-reset-panel" data-reset><div class="set-reset-icon">' + ICONS.resetSpin + '</div>' +
-          '<div class="card-main"><span class="card-title" style="font-size:15px">إعادة الضبط</span><span class="card-sub">مسح بيانات هذا الحساب والرجوع إلى الصفر</span></div></div>';
-      }
-
-      h += '<nav class="nav-dock"><span class="nav-ind' + (navIdx() < 0 ? " off" : "") + '"></span>' +
-        '<button class="nav-item ' + (V === "list" || V === "detail" ? "active" : "") + '" data-v="list">' + ICONS.wallet3D + '<span>حساب الكريدي</span></button>' +
-        '<button class="nav-item ' + (V === "ledger" ? "active" : "") + '" data-v="ledger">' + ICONS.store3D + '<span>حساب المتجر</span></button>' +
-        '<button class="nav-item ' + (V === "stats" ? "active" : "") + '" data-v="stats">' + ICONS.stats3D + '<span>الإحصائيات</span></button>' +
-        '</nav>';
-    }
-
-    if (cf) {
-      h += '<div class="sheet-backdrop" data-close><div class="sheet-box"><b style="font-size:17px">تأكيد العملية</b>' +
-        '<p style="margin:8px 0 0;color:var(--ink-dim);font-size:14px">' + esc(cf.m) + '</p>' +
-        '<div style="display:flex;gap:10px;margin-top:16px">' +
-        '<button class="dual-btn" style="background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.5);color:#fff" data-cfno>إلغاء</button>' +
-        '<button class="dual-btn red" data-cfok>تأكيد الحذف</button></div></div></div>';
-    }
-
-    if (sheet) {
-      var activePerson = S.p.find(function (x) { return x.id === sel; });
-      var T = {
-        g: "أعطيت (مبلغ لي)",
-        t: "أخذت (دين عليّ / دفعة)",
-        i: "تسجيل مدخول المتجر",
-        o: "تسجيل مصروف المتجر",
-        newc: "إضافة " + (tab === "c" ? "عميل جديد" : "مورد جديد"),
-        editc: "تعديل بيانات " + (activePerson ? activePerson.n : ""),
-        edittitle: "تعديل العنوان الرئيسي",
-        pinon: "تفعيل القفل",
-        pinchg: "تغيير الرمز",
-        pinoff: "إيقاف القفل",
-        ex: "تعديل المعاملة",
-        el: "تعديل العملية"
-      };
-      var formHtml = "";
-      if (sheet === "newc") {
-        formHtml = '<input id="nm" placeholder="الاسم الكامل" autocomplete="off">' +
-          '<input id="ph" type="tel" placeholder="رقم الهاتف (اختياري - للاتصال وواتساب)" autocomplete="tel" dir="ltr" style="text-align:right">';
-      } else if (sheet === "editc") {
-        formHtml = '<input id="nm" placeholder="الاسم الكامل" value="' + esc(activePerson ? activePerson.n : "") + '" autocomplete="off">' +
-          '<input id="ph" type="tel" placeholder="رقم الهاتف (اختياري)" value="' + esc(activePerson ? activePerson.ph : "") + '" autocomplete="tel" dir="ltr" style="text-align:right">';
-      } else if (sheet === "edittitle") {
-        formHtml = '<input id="ttl" placeholder="اكتب العنوان الجديد (مثال: دفتر الكريدي)" value="' + esc(S.s || "دفتر الكريدي") + '" maxlength="40" autocomplete="off">';
-      } else if (sheet === "g" || sheet === "t") {
-        formHtml = '<input id="am" type="number" inputmode="decimal" min="0" placeholder="المبلغ (د.م.)">' +
-          '<input id="nt" placeholder="ملاحظة أو تفاصيل (اختياري)">' +
-          '<label class="sheet-field-label">تاريخ استحقاق السداد (اختياري):</label>' +
-          '<input id="due-dt" type="date">' +
-          '<label class="sync-check-row"><input type="checkbox" id="sync-store"><span>' + (sheet === "t" ? "إضافة هذا المبلغ تلقائياً إلى مداخيل المتجر" : "خصم هذا المبلغ تلقائياً من مصاريف المتجر") + '</span></label>';
-      } else if (sheet === "pinon") {
-        formHtml = '<input id="pn1" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="رمز PIN جديد (4 إلى 6 أرقام)">' +
-          '<input id="pn2" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="أعد كتابة الرمز">';
-      } else if (sheet === "pinchg") {
-        formHtml = '<input id="po" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="الرمز الحالي">' +
-          '<input id="pn1" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="الرمز الجديد (4 إلى 6 أرقام)">' +
-          '<input id="pn2" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="أعد كتابة الرمز الجديد">';
-      } else if (sheet === "pinoff") {
-        formHtml = '<input id="po" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="أدخل الرمز الحالي">';
-      } else if (sheet === "ex") {
-        var exTx = activePerson && activePerson.x.find(function (x) { return String(x.i) === String(editId); });
-        formHtml = '<input id="am" type="number" inputmode="decimal" min="0" placeholder="المبلغ (د.م.)" value="' + (exTx ? exTx.a : "") + '">' +
-          '<input id="nt" placeholder="ملاحظة أو تفاصيل (اختياري)" value="' + esc(exTx ? exTx.m : "") + '">' +
-          '<label class="sheet-field-label">تاريخ استحقاق السداد (اختياري):</label>' +
-          '<input id="due-dt" type="date" value="' + esc(exTx && exTx.due ? exTx.due : "") + '">';
-      } else if (sheet === "el") {
-        var elTx = S.l.find(function (x) { return String(x.i) === String(editId); });
-        formHtml = '<input id="am" type="number" inputmode="decimal" min="0" placeholder="المبلغ (د.م.)" value="' + (elTx ? elTx.a : "") + '">' +
-          '<input id="nt" placeholder="ملاحظة أو تفاصيل (اختياري)" value="' + esc(elTx ? elTx.m : "") + '">' +
-          (elTx && elTx.k === "o" ? catSelect(elTx.c) : "");
-      } else if (sheet === "o") {
-        formHtml = '<input id="am" type="number" inputmode="decimal" min="0" placeholder="المبلغ (د.م.)">' +
-          '<input id="nt" placeholder="ملاحظة أو تفاصيل (اختياري)">' + catSelect("");
-      } else {
-        formHtml = '<input id="am" type="number" inputmode="decimal" min="0" placeholder="المبلغ (د.م.)">' +
-          '<input id="nt" placeholder="ملاحظة أو تفاصيل (اختياري)">';
-      }
-      h += '<div class="sheet-backdrop" data-close><div class="sheet-box"><b style="font-size:17px">' + T[sheet] + '</b>' +
-        formHtml + '<button class="glow-cta" style="width:100%;margin-top:14px;padding:10px" data-ok>تأكيد وحفظ</button></div></div>';
-    }
-
-    a.innerHTML = h;
-    var ind = $(".nav-ind");
-    if (ind) {
-      var ni = navIdx();
-      ind.style.setProperty("--i", String(navPrev >= 0 ? navPrev : Math.max(ni, 0)));
-      if (ni >= 0) {
-        void ind.offsetWidth;
-        requestAnimationFrame(function () { ind.style.setProperty("--i", String(ni)); });
-        navPrev = ni;
-      }
-    }
-    var i = $("#am") || $("#nm") || $("#ttl") || $("#po") || $("#pn1");
-    if (i) { i.focus(); if (i.id === "ttl") i.select(); }
-    var qq = $("#q");
-    if (qq && document.activeElement !== qq && q) {
-      qq.focus();
-      qq.setSelectionRange(q.length, q.length);
-    }
-  }
-
-  var toastTimer = null;
-  function paintOverlay() {
-    var o = $("#overlay");
-    if (!o) return;
-    var h = "";
-    if (toastMsg) h += '<div class="toast">' + esc(toastMsg) + '</div>';
-    if (undoState) h += '<div class="undo-bar"><span>' + esc(undoState.msg) + '</span><button data-undo>تراجع</button></div>';
-    o.innerHTML = h;
-  }
-  function showToast(msg) {
-    toastMsg = msg;
-    paintOverlay();
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { toastMsg = ""; paintOverlay(); }, 3400);
-  }
-  function pushUndo(msg, snap) {
-    undoState = { msg: msg, snap: snap };
-    clearTimeout(undoTimer);
-    undoTimer = setTimeout(function () { undoState = null; paintOverlay(); }, 7000);
-    paintOverlay();
-  }
-
-  function addImportedContacts(list) {
-    var existing = S.p.filter(function (p) { return p.t === tab; });
-    var added = 0;
-    list.forEach(function (c) {
-      var n = String(c.n || "").trim(), ph = String(c.ph || "").trim();
-      if (!n) return;
-      var digits = ph.replace(/\D/g, "");
-      var dup = existing.some(function (p) {
-        return digits ? (p.ph && p.ph.replace(/\D/g, "") === digits) : p.n === n;
-      });
-      if (dup) return;
-      var np = { id: newPid(), n: n, ph: ph, t: tab, x: [] };
-      S.p.push(np); existing.push(np); added++;
-    });
-    sheet = null;
-    if (added) save();
-    render();
-    showToast(added ? ("تمت إضافة " + added + " جهة اتصال") : "لا توجد جهات جديدة (الكل موجود مسبقاً)");
-  }
-
-  function parseVcf(text) {
-    var out = [];
-    String(text).split(/BEGIN:VCARD/i).slice(1).forEach(function (card) {
-      var fn = card.match(/^FN[^:\r\n]*:(.*)$/im);
-      var tel = card.match(/^TEL[^:\r\n]*:(.*)$/im);
-      var n = fn ? fn[1].trim() : "";
-      if (!n) {
-        var nm = card.match(/^N[^:\r\n]*:(.*)$/im);
-        if (nm) n = nm[1].split(";").filter(Boolean).reverse().join(" ").trim();
-      }
-      out.push({ n: n, ph: tel ? tel[1].trim() : "" });
-    });
-    return out;
-  }
-
-  function importFromContacts() {
-    if (navigator.contacts && navigator.contacts.select) {
-      navigator.contacts.select(["name", "tel"], { multiple: true }).then(function (res) {
-        addImportedContacts(res.map(function (c) {
-          return { n: (c.name && c.name[0]) || "", ph: (c.tel && c.tel[0]) || "" };
-        }));
-      }).catch(function () { showToast("تعذر فتح جهات الاتصال"); });
-    } else {
-      var fi = $("#vcf");
-      if (fi) fi.click();
-    }
-  }
-
-  document.addEventListener("click", function (e) {
-    var t = e.target.closest("[data-tab],[data-open],[data-back],[data-v],[data-sheet],[data-ok],[data-close],[data-delx],[data-dell],[data-delp],[data-reset],[data-theme-set],[data-cfok],[data-cfno],[data-sort],[data-chip],[data-glogin],[data-guest],[data-logout],[data-authmode],[data-email-submit],[data-toggle-pass],[data-call],[data-wa-chat],[data-wa-share],[data-img-share],[data-exp-debts],[data-exp-ledger],[data-exp-pdf],[data-edx],[data-edl],[data-undo],[data-import-contacts],[data-pinkey],[data-pinbio],[data-lockforgot],[data-lockcancel],[data-lockreset],[data-lockon],[data-lockchg],[data-lockoff],[data-lockbioset],[data-lockbiooff],[data-lockdelay]");
-    if (!t) return;
-    var d = t.dataset;
-    if (t.hasAttribute("data-close") && e.target !== t) return;
-
-    if ("togglePass" in d) {
-      var prevEmail = $("#auth-email") ? $("#auth-email").value : "";
-      var prevName = $("#auth-name") ? $("#auth-name").value : "";
-      var prevPass = $("#auth-password") ? $("#auth-password").value : "";
-      showPass = !showPass;
-      render();
-      if ($("#auth-email")) $("#auth-email").value = prevEmail;
-      if ($("#auth-name")) $("#auth-name").value = prevName;
-      if ($("#auth-password")) $("#auth-password").value = prevPass;
-      return;
-    }
-
-    if ("authmode" in d) {
-      var prevEmail2 = $("#auth-email") ? $("#auth-email").value : "";
-      authMode = d.authmode;
-      showPass = false;
-      render();
-      if ($("#auth-email")) $("#auth-email").value = prevEmail2;
-      return;
-    }
-
-    if ("emailSubmit" in d) { handleEmailSubmit(); return; }
-    if ("glogin" in d) { handleGoogleLogin(); return; }
-    if ("guest" in d) {
-      try { localStorage.setItem(GUEST_MODE_KEY, "1"); } catch (err) {}
-      bindUserCloudData({ uid: "local-user", displayName: "حساب محلي", email: "محفوظ على هذا الجهاز", isGuest: true });
-      return;
-    }
-    if ("logout" in d) { handleLogout(); return; }
-
-    if ("call" in d) {
-      var pCall = S.p.find(function (x) { return x.id === sel; });
-      if (!pCall || !pCall.ph) { sheet = "editc"; showToast("أضف رقم الهاتف أولاً للاتصال"); render(); return; }
-      window.location.href = "tel:" + pCall.ph.replace(/\s+/g, "");
-      return;
-    }
-    if ("waChat" in d) {
-      var pWa = S.p.find(function (x) { return x.id === sel; });
-      var waPhone = formatWhatsAppPhone(pWa && pWa.ph);
-      if (!waPhone) { sheet = "editc"; showToast("أضف رقم الهاتف لفتح واتساب"); render(); return; }
-      window.open("https://wa.me/" + waPhone, "_blank");
-      return;
-    }
-    if ("waShare" in d) {
-      var pShare = S.p.find(function (x) { return x.id === sel; });
-      if (pShare) shareWhatsAppStatement(pShare);
-      return;
-    }
-    if ("imgShare" in d) {
-      var pImg = S.p.find(function (x) { return x.id === sel; });
-      if (pImg) shareImageStatement(pImg);
-      return;
-    }
-
-    if ("expDebts" in d) { exportExcelCSV("debts"); return; }
-    if ("expLedger" in d) { exportExcelCSV("ledger"); return; }
-    if ("expPdf" in d) { exportPrintablePDF(); return; }
-    if (locked) {
-      if ("pinkey" in d) pressPin(d.pinkey);
-      else if ("pinbio" in d) bioUnlock(false);
-      else if ("lockforgot" in d) { lockForgot = true; render(); }
-      else if ("lockcancel" in d) { lockForgot = false; render(); }
-      else if ("lockreset" in d) resetLockAndData();
-      return;
-    }
-    if ("lockon" in d) { sheet = "pinon"; render(); return; }
-    if ("lockchg" in d) { sheet = "pinchg"; render(); return; }
-    if ("lockoff" in d) { sheet = "pinoff"; render(); return; }
-    if ("lockdelay" in d) { if (lockCfg) { lockCfg.delay = +d.lockdelay; saveLock(); } render(); return; }
-    if ("lockbioset" in d) { enrollBio(); return; }
-    if ("lockbiooff" in d) { if (lockCfg) { delete lockCfg.bio; saveLock(); } render(); return; }
-    if ("ok" in d && /^pin(on|chg|off)$/.test(sheet || "")) { submitLockSheet(); return; }
-    if ("importContacts" in d) { importFromContacts(); return; }
-    if ("undo" in d) {
-      if (undoState) {
-        S = normalizeState(JSON.parse(undoState.snap));
-        undoState = null; clearTimeout(undoTimer); paintOverlay();
-        save();
-      }
-      render();
-      return;
-    }
-    if ("edx" in d) { editId = d.edx; sheet = "ex"; render(); return; }
-    if ("edl" in d) { editId = d.edl; sheet = "el"; render(); return; }
-
-    if ("tab" in d) { tab = d.tab; q = ""; onlyOverdue = false; }
-    else if ("open" in d) { sel = +d.open; V = "detail"; }
-    else if ("back" in d) { V = "list"; }
-    else if ("v" in d) { V = d.v; }
-    else if ("chip" in d) {
-      if (d.chip === "all") { onlyOverdue = false; sortByAmt = false; }
-      else if (d.chip === "overdue") { onlyOverdue = !onlyOverdue; }
-    }
-    else if ("sort" in d) { sortByAmt = !sortByAmt; showToast(sortByAmt ? "تم الترتيب حسب أعلى مبلغ" : "تم إلغاء الفرز"); }
-    else if ("sheet" in d) { sheet = d.sheet; }
-    else if ("close" in d) { sheet = null; cf = null; }
-    else if ("ok" in d) {
-      if (sheet === "newc") {
-        var n = $("#nm").value.trim();
-        var ph = $("#ph") ? $("#ph").value.trim() : "";
-        if (!n) return;
-        S.p.push({ id: newPid(), n: n, ph: ph, t: tab, x: [] });
-      } else if (sheet === "editc") {
-        var pEdit = S.p.find(function (x) { return x.id === sel; });
-        var nEdit = $("#nm").value.trim();
-        var phEdit = $("#ph") ? $("#ph").value.trim() : "";
-        if (pEdit && nEdit) { pEdit.n = nEdit; pEdit.ph = phEdit; }
-      } else if (sheet === "edittitle") {
-        var val = $("#ttl").value.trim();
-        S.s = val || "دفتر الكريدي";
-      } else if (sheet === "ex") {
-        var pe = S.p.find(function (x) { return x.id === sel; });
-        var txe = pe && pe.x.find(function (x) { return String(x.i) === String(editId); });
-        var ae = parseFloat($("#am").value);
-        if (!(ae > 0)) return;
-        if (txe) {
-          txe.a = ae;
-          txe.m = $("#nt").value.trim();
-          var dve = $("#due-dt") ? $("#due-dt").value.trim() : "";
-          if (dve) txe.due = dve; else delete txe.due;
-        }
-      } else if (sheet === "el") {
-        var le = S.l.find(function (x) { return String(x.i) === String(editId); });
-        var al = parseFloat($("#am").value);
-        if (!(al > 0)) return;
-        if (le) {
-          le.a = al;
-          le.m = $("#nt").value.trim();
-          var cv = $("#cat") ? $("#cat").value : "";
-          if (le.k === "o") { if (cv) le.c = cv; else delete le.c; }
-        }
-      } else {
-        var a = parseFloat($("#am").value);
-        if (!(a > 0)) return;
-        var m = $("#nt").value.trim();
-        var due = $("#due-dt") ? $("#due-dt").value.trim() : "";
-        var syncStore = $("#sync-store") ? $("#sync-store").checked : false;
-        var now = Date.now();
-        var x = { k: sheet, a: a, m: m, d: now, i: newId() };
-        if (due) x.due = due;
-        if (sheet === "o" && $("#cat") && $("#cat").value) x.c = $("#cat").value;
-        if (sheet === "i" || sheet === "o") {
-          S.l.push(x);
-        } else {
-          var pTx = S.p.find(function (p) { return p.id === sel; });
-          pTx.x.push(x);
-          if (syncStore) {
-            S.l.push({
-              k: sheet === "t" ? "i" : "o",
-              a: a,
-              m: (sheet === "t" ? "دفعة من " : "دفعة لـ ") + pTx.n + (m ? " (" + m + ")" : ""),
-              d: now + 1,
-              i: newId(),
-              c: sheet === "g" ? "سلعة" : ""
-            });
-            showToast(sheet === "t" ? "تم الحفظ وإضافة المبلغ لمداخيل المتجر" : "تم الحفظ وخصم المبلغ من مصاريف المتجر");
-          }
-        }
-      }
-      sheet = null;
-      save();
-    }
-    else if ("delx" in d) {
-      var snapX = JSON.stringify(S);
-      var pDelX = S.p.find(function (x) { return x.id === sel; });
-      pDelX.x = pDelX.x.filter(function (x) { return String(x.i) !== String(d.delx); });
-      save();
-      pushUndo("تم حذف المعاملة", snapX);
-    }
-    else if ("dell" in d) {
-      var snapL = JSON.stringify(S);
-      S.l = S.l.filter(function (x) { return String(x.i) !== String(d.dell); });
-      save();
-      pushUndo("تم حذف العملية", snapL);
-    }
-    else if ("delp" in d) {
-      var pDel = S.p.find(function (x) { return x.id === +d.delp; });
-      if (!pDel) return;
-      cf = { m: "سيتم حذف «" + pDel.n + "» وجميع معاملاته نهائياً. هل أنت متأكد؟", a: "delp", id: pDel.id };
-    }
-    else if ("cfno" in d) { cf = null; }
-    else if ("cfok" in d) {
-      var snapC = JSON.stringify(S), undoMsg = "";
-      if (cf.a === "reset") { S = normalizeState({}); tab = "c"; q = ""; sel = null; V = "list"; undoMsg = "تمت إعادة الضبط"; }
-      else if (cf.a === "delp") {
-        var pgone = S.p.find(function (p) { return p.id === cf.id; });
-        undoMsg = "تم حذف «" + (pgone ? pgone.n : "") + "»";
-        S.p = S.p.filter(function (p) { return p.id !== cf.id; }); V = "list"; sel = null;
-      }
-      cf = null;
-      save();
-      if (undoMsg) pushUndo(undoMsg, snapC);
-    }
-    else if ("themeSet" in d) { setTheme(d.themeSet); }
-    else if ("reset" in d) { cf = { m: "سيتم مسح جميع بيانات هذا الحساب والعودة إلى الصفر. هل أنت متأكد؟", a: "reset" }; }
-
-    render();
-  });
-
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Enter" && !currentUser && e.target && (e.target.id === "auth-email" || e.target.id === "auth-password" || e.target.id === "auth-name")) {
-      e.preventDefault();
-      handleEmailSubmit();
-    }
-  });
-
-  document.addEventListener("input", function (e) {
-    if (e.target.id === "sn") { S.s = e.target.value.trim(); save(true); }
-    if (e.target.id === "q") { q = e.target.value; render(); }
-  });
-
-  document.addEventListener("change", function (e) {
-    if (e.target && e.target.id === "vcf" && e.target.files && e.target.files[0]) {
-      var rd = new FileReader();
-      rd.onload = function () { addImportedContacts(parseVcf(String(rd.result))); };
-      rd.readAsText(e.target.files[0]);
-    }
-  });
-
-  document.addEventListener("visibilitychange", function () {
-    if (document.hidden && dirty && currentUser && !currentUser.isGuest) writeNow(currentUser.uid);
-  });
-
-  /* 1. إذا كان وضع الضيف مفعلاً مسبقاً، حمّل البيانات المحلية فوراً */
-  try {
-    if (localStorage.getItem(GUEST_MODE_KEY) === "1") {
-      currentUser = { uid: "local-user", displayName: "حساب محلي", email: "محفوظ على هذا الجهاز", isGuest: true };
-      loadLocalData();
-    }
-  } catch (e) {}
-
-  /* 2. ارسم الواجهة فوراً دون انتظار أي ملف خارجي */
-  render();
-
-  /* 3. حمّل مكتبات Firebase في الخلفية بأمان */
-  initFirebaseBackground();
-})();
-</script>
-</body>
-</html>
+    
